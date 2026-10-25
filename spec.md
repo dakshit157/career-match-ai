@@ -1,6 +1,6 @@
 # Technical Specification (Spec)
 
-## Project Title: StudyMate AI – Smart Study Planner
+## Project Title: CareerMatch AI — AI-Powered Resume & Job Match Analyzer
 **Stack:** Next.js (Frontend) + FastAPI (Backend) + Google Gemini API (AI)
 
 ---
@@ -10,91 +10,84 @@
 ```text
 [ Browser / Next.js Client ]
              │
-             │ HTTP POST /api/study-plan
+             │ multipart/form-data:
+             │  • resume (PDF file)
+             │  • job_description (string)
              ▼
 [ FastAPI Backend (Python) ]
              │
-             │ 1. Validate inputs (Pydantic)
-             │ 2. Formulate prompt & schema
+             │ 1. Validate file size (<= 5 MB) & mime type
+             │ 2. Extract text in-memory via pypdf
+             │ 3. Formulate structured prompt & JSON schema
              ▼
 [ Google Gemini 2.5 Flash API ]
              │
-             │ Return Structured JSON
+             │ Validated JSON Output
              ▼
 [ FastAPI Backend (Python) ]
              │
-             │ Enriched JSON Response
+             │ Validated Pydantic Response (AnalyzeMatchResponse)
              ▼
 [ Browser / Next.js Client ]
-  -> Renders Interactive Day-by-Day Roadmap
+  -> Interactive Results Dashboard
 ```
 
 ---
 
 ## 2. API Contract Specification
 
-### Endpoint: `POST /api/study-plan`
+### Endpoint: `POST /api/analyze-match`
+- **Content-Type:** `multipart/form-data`
 
-#### Request Payload Schema
+#### Request Parameters
+- `resume`: `UploadFile` (Required, binary PDF document, <= 5 MB)
+- `job_description`: `str` (Required, text of target job posting, >= 30 chars)
+
+#### Response Schema (`AnalyzeMatchResponse`)
 ```json
 {
-  "start_date": "2026-10-26",
-  "daily_hours": 6.0,
-  "subjects": [
+  "match_score": 82,
+  "score_breakdown": {
+    "technical_skills": 85,
+    "experience_alignment": 75,
+    "education_foundations": 90
+  },
+  "summary": "The candidate presents strong foundations in Python and SQL with verified coursework and basic machine learning projects...",
+  "matching_skills": [
+    "Python",
+    "SQL",
+    "NumPy & Pandas",
+    "Exploratory Data Analysis"
+  ],
+  "missing_skills": [
+    "A/B Testing Methodologies",
+    "Cloud Data Ingestion (AWS/GCP)"
+  ],
+  "improvement_skills": [
+    "Machine Learning Deployment (Need end-to-end API demonstration)"
+  ],
+  "resume_suggestions": [
+    "Add quantitative metrics to your Python data pipeline project (e.g., records processed, performance gain).",
+    "Include links to your GitHub repositories highlighting SQL queries and EDA notebooks."
+  ],
+  "project_recommendations": [
     {
-      "name": "Operating Systems",
-      "exam_date": "2026-11-04",
-      "difficulty": "Hard"
-    },
-    {
-      "name": "Computer Networks",
-      "exam_date": "2026-11-08",
-      "difficulty": "Medium"
-    }
-  ]
-}
-```
-
-#### Response Payload Schema
-```json
-{
-  "plan_summary": "Comprehensive 14-day study plan emphasizing Operating Systems concepts and early Networks review.",
-  "total_days": 14,
-  "total_hours": 84.0,
-  "subject_distribution": [
-    {
-      "subject": "Operating Systems",
-      "allocated_hours": 48.0,
-      "difficulty": "Hard"
-    },
-    {
-      "subject": "Computer Networks",
-      "allocated_hours": 36.0,
-      "difficulty": "Medium"
+      "title": "E-Commerce Customer Churn Analysis Pipeline",
+      "description": "Develop an end-to-end classification pipeline predicting customer churn using SQL for extraction and Pandas/Scikit-learn for modeling.",
+      "skills_demonstrated": ["Python", "SQL", "Scikit-Learn", "Data Visualization"]
     }
   ],
-  "daily_schedule": [
+  "learning_roadmap": [
     {
-      "day_number": 1,
-      "date": "2026-10-26",
-      "day_theme": "Core Concepts & Deep Work",
-      "sessions": [
-        {
-          "subject": "Operating Systems",
-          "hours": 3.5,
-          "focus_topic": "Process Synchronization & Semaphores",
-          "session_type": "Deep Study"
-        },
-        {
-          "subject": "Computer Networks",
-          "hours": 2.5,
-          "focus_topic": "OSI & TCP/IP Reference Models",
-          "session_type": "Deep Study"
-        }
-      ],
-      "daily_tip": "Focus on visual diagrams for process states."
+      "phase": "Phase 1: High Priority (Week 1-2)",
+      "focus": "A/B Testing & Hypothesis Testing Fundamentals",
+      "action_items": [
+        "Study two-sample t-tests and p-value interpretation.",
+        "Implement an A/B test simulation in Python with Pandas."
+      ]
     }
-  ]
+  ],
+  "disclaimer": "This match score is an algorithmic estimate based on the provided text, not a probability or guarantee of employment."
 }
 ```
 
@@ -105,52 +98,17 @@
 ### Prompt Strategy
 1. **Model:** `gemini-2.5-flash`
 2. **System Instruction:**
-   > "You are an expert academic study strategist and college tutor. Your job is to construct a balanced, realistic, day-by-day study schedule for university students preparing for semester exams.
-   > Rules:
-   > 1. Prioritize subjects with earlier exam dates and higher difficulty ratings.
-   > 2. Ensure each day's total study session hours sum exactly or closely to the student's daily available hours.
-   > 3. Mark the day before each exam as 'Final Revision' for that specific subject.
-   > 4. Ensure spaced repetition across multiple days for retention.
-   > 5. Output valid, parseable JSON conforming strictly to the requested schema."
+   - Enforce rigorous adherence to the text provided in the resume.
+   - Forbid inventing credentials, certificates, or prior employment.
+   - Separate missing skills (not mentioned at all) from skills that need improvement (mentioned but lacking depth).
+   - Require actionable, honest resume refinement suggestions and project ideas.
 3. **Response Schema Enforcement:**
-   Using Gemini `response_mime_type="application/json"` with Pydantic JSON schema or typed instructions.
+   - Configured with `response_mime_type="application/json"` and `temperature=0.2` for deterministic, structured output.
 
 ---
 
-## 4. Frontend Component Structure
-
-- `frontend/src/app/page.tsx`:
-  - `Header`: App title, badge, backend live connection status.
-  - `PlanForm`:
-    - Daily study hours slider/number input.
-    - Start date input.
-    - Subject row repeater (Subject name, exam date, difficulty selector: Easy/Medium/Hard, delete button).
-    - "Add Subject" button & "Generate Study Plan" button with loading spinner.
-  - `RoadmapView`:
-    - Summary banner (Total days, total hours, subject pills).
-    - "Copy to Clipboard" button.
-    - Chronological list of daily cards.
-    - Session item tags (`Deep Study`, `Revision`, `Exam Day`).
-
----
-
-## 5. Directory Organization
-
-```text
-d:\Devpost Project\
-├── scope.md               # Scope and MVP boundaries
-├── prd.md                 # Product Requirements Document
-├── spec.md                # Technical Specification
-├── backend/
-│   ├── .env               # API keys (GEMINI_API_KEY)
-│   ├── .env.example
-│   ├── main.py            # FastAPI endpoints & Gemini integration
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   └── app/
-│   │       ├── layout.tsx
-│   │       └── page.tsx   # StudyMate AI Frontend interface
-│   └── package.json
-└── README.md
-```
+## 4. Privacy & In-Memory Processing Guarantees
+- Uploaded PDFs are read into `io.BytesIO` streams in RAM.
+- No files are written to the local filesystem or a database.
+- Text is sent securely to Google's Gemini API over TLS/HTTPS.
+- Memory buffers are released immediately after request completion.

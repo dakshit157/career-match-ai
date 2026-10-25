@@ -1,82 +1,92 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
-  Calendar,
-  Clock,
-  BookOpen,
-  Sparkles,
-  Plus,
-  Trash2,
+  Briefcase,
+  FileText,
+  Upload,
   CheckCircle2,
   XCircle,
+  AlertTriangle,
   RefreshCw,
-  Copy,
-  Check,
-  AlertCircle,
-  GraduationCap,
-  Lightbulb,
+  Sparkles,
+  ArrowRight,
+  ShieldCheck,
+  TrendingUp,
+  BookOpen,
+  Award,
   Layers,
-  Flame,
-  ArrowRight
+  ChevronRight,
+  FileCheck,
+  RotateCcw,
+  ExternalLink,
+  Code2
 } from "lucide-react";
 
-interface Subject {
-  id: string;
-  name: string;
-  exam_date: string;
-  difficulty: "Easy" | "Medium" | "Hard";
+interface ProjectRecommendation {
+  title: string;
+  description: string;
+  skills_demonstrated: string[];
 }
 
-interface StudySession {
-  subject: string;
-  hours: number;
-  focus_topic: string;
-  session_type: string;
+interface RoadmapPhase {
+  phase: string;
+  focus: string;
+  action_items: string[];
 }
 
-interface DailySchedule {
-  day_number: number;
-  date: string;
-  day_theme: string;
-  sessions: StudySession[];
-  daily_tip?: string;
+interface ScoreBreakdown {
+  technical_skills: number;
+  experience_alignment: number;
+  education_foundations: number;
 }
 
-interface SubjectDistribution {
-  subject: string;
-  allocated_hours: number;
-  difficulty: string;
+interface AnalyzeMatchResponse {
+  match_score: number;
+  score_breakdown?: ScoreBreakdown;
+  summary: string;
+  matching_skills: string[];
+  missing_skills: string[];
+  improvement_skills: string[];
+  resume_suggestions: string[];
+  project_recommendations: ProjectRecommendation[];
+  learning_roadmap: RoadmapPhase[];
+  disclaimer: string;
 }
 
-interface StudyPlanResponse {
-  plan_summary: string;
-  warning?: string;
-  total_days: number;
-  total_hours: number;
-  subject_distribution: SubjectDistribution[];
-  daily_schedule: DailySchedule[];
-  source: string;
-}
+const SAMPLE_JOB_DESCRIPTION = `Job Title: Junior Data Scientist
+Location: Remote / Hybrid
+
+About the Role:
+We are seeking an enthusiastic Junior Data Scientist to join our analytics and machine learning team. You will work on real-world datasets, build predictive models, and communicate data-driven insights to product stakeholders.
+
+Key Responsibilities:
+- Write clean, maintainable Python code for data ingestion, cleaning, and transformation.
+- Query and aggregate large relational datasets using SQL.
+- Perform exploratory data analysis (EDA) using NumPy, Pandas, Matplotlib, and Seaborn.
+- Develop, evaluate, and tune baseline machine learning models (Regression, Random Forests, Classification).
+- Apply statistical methods (hypothesis testing, probability distributions, A/B testing fundamentals).
+- Create intuitive data visualizations and dashboards to present analytical findings to non-technical teams.
+
+Qualifications:
+- Bachelor's degree in Computer Science, Information Technology, Statistics, or related technical field.
+- Demonstrated hands-on proficiency in Python and SQL through coursework, internships, or personal projects.
+- Familiarity with core ML concepts, Scikit-Learn, and statistical analysis.
+- Eager to learn, solve complex data problems, and collaborate in an agile environment.`;
 
 export default function Home() {
-  // Form State
-  const [startDate, setStartDate] = useState<string>("");
-  const [dailyHours, setDailyHours] = useState<number>(6);
-  const [subjects, setSubjects] = useState<Subject[]>([
-    { id: "1", name: "Operating Systems", exam_date: "", difficulty: "Hard" },
-    { id: "2", name: "Computer Networks", exam_date: "", difficulty: "Medium" },
-  ]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [jobDescription, setJobDescription] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [analysis, setAnalysis] = useState<AnalyzeMatchResponse | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
 
-  // Loading & Plan State
-  const [loading, setLoading] = useState(false);
-  const [plan, setPlan] = useState<StudyPlanResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  // Backend Health Status
+  const [backendStatus, setBackendStatus] = useState<"checking" | "connected" | "disconnected">("checking");
+  const [geminiConfigured, setGeminiConfigured] = useState<boolean>(false);
 
-  // Health State
-  const [backendStatus, setBackendStatus] = useState<"connected" | "disconnected" | "checking">("checking");
-  const [geminiConfigured, setGeminiConfigured] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const checkHealth = async () => {
     try {
@@ -84,7 +94,7 @@ export default function Home() {
       if (res.ok) {
         const data = await res.json();
         setBackendStatus("connected");
-        setGeminiConfigured(data.gemini_configured);
+        setGeminiConfigured(Boolean(data.gemini_configured));
       } else {
         setBackendStatus("disconnected");
       }
@@ -94,124 +104,105 @@ export default function Home() {
   };
 
   useEffect(() => {
-    // Initialize default dates safely on client mount
-    const today = new Date();
-    const todayFormatted = today.toISOString().split("T")[0];
-    const exam1 = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-    const exam2 = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-
-    setStartDate(todayFormatted);
-    setSubjects([
-      { id: "1", name: "Operating Systems", exam_date: exam1, difficulty: "Hard" },
-      { id: "2", name: "Computer Networks", exam_date: exam2, difficulty: "Medium" },
-    ]);
-
     checkHealth();
   }, []);
 
-  // Subject Handlers
-  const addSubject = () => {
-    const nextDate = new Date(Date.now() + (12 + subjects.length * 3) * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
-    setSubjects((prev) => [
-      ...prev,
-      {
-        id: Math.random().toString(36).substring(7),
-        name: "",
-        exam_date: nextDate,
-        difficulty: "Medium",
-      },
-    ]);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFileError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
+      setFileError("Please upload a PDF document (.pdf).");
+      setSelectedFile(null);
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setFileError("File size exceeds 5 MB. Please choose a smaller PDF resume.");
+      setSelectedFile(null);
+      return;
+    }
+
+    setSelectedFile(file);
   };
 
-  const removeSubject = (id: string) => {
-    if (subjects.length <= 1) return;
-    setSubjects((prev) => prev.filter((s) => s.id !== id));
+  const loadSampleJob = () => {
+    setJobDescription(SAMPLE_JOB_DESCRIPTION);
   };
 
-  const updateSubject = (id: string, field: keyof Subject, value: string) => {
-    setSubjects((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, [field]: value } : s))
-    );
-  };
-
-  // Generate Plan Handler
-  const handleGenerate = async (e: React.FormEvent) => {
+  const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setErrorMessage(null);
 
-    // Validation
-    const emptySubject = subjects.find((s) => !s.name.trim());
-    if (emptySubject) {
-      setError("Please fill in names for all subjects.");
+    if (!selectedFile) {
+      setErrorMessage("Please select a PDF resume to analyze.");
+      return;
+    }
+
+    if (jobDescription.trim().length < 30) {
+      setErrorMessage("Please paste a job description with at least 30 characters.");
       return;
     }
 
     setLoading(true);
+
     try {
-      const res = await fetch("http://localhost:8000/api/study-plan", {
+      const formData = new FormData();
+      formData.append("resume", selectedFile);
+      formData.append("job_description", jobDescription.trim());
+
+      const res = await fetch("http://localhost:8000/api/analyze-match", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          start_date: startDate,
-          daily_hours: Number(dailyHours),
-          subjects: subjects.map(({ name, exam_date, difficulty }) => ({
-            name: name.trim(),
-            exam_date,
-            difficulty,
-          })),
-        }),
+        body: formData,
       });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: "Failed to generate plan" }));
-        throw new Error(err.detail || "Server error");
+        const errorData = await res.json().catch(() => ({ detail: "Analysis request failed." }));
+        throw new Error(errorData.detail || `Server responded with error status ${res.status}`);
       }
 
-      const data = await res.json();
-      setPlan(data);
+      const data: AnalyzeMatchResponse = await res.json();
+      setAnalysis(data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Could not connect to backend server");
+      setErrorMessage(err instanceof Error ? err.message : "An unexpected error occurred during analysis.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Copy Plan Text
-  const handleCopy = () => {
-    if (!plan) return;
-    let text = `📅 StudyMate AI Plan\n${plan.plan_summary}\n\nTotal: ${plan.total_days} Days | ${plan.total_hours} Hours\n\n`;
-    plan.daily_schedule.forEach((day) => {
-      text += `--- Day ${day.day_number} (${day.date}) ---\n`;
-      text += `Theme: ${day.day_theme}\n`;
-      day.sessions.forEach((s) => {
-        text += `• [${s.session_type}] ${s.subject}: ${s.hours}h - ${s.focus_topic}\n`;
-      });
-      if (day.daily_tip) text += `Tip: ${day.daily_tip}\n`;
-      text += `\n`;
-    });
+  const handleReset = () => {
+    setAnalysis(null);
+    setErrorMessage(null);
+  };
 
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const getScoreColor = (score: number) => {
+    if (score >= 75) return "text-emerald-400 border-emerald-500/30 bg-emerald-500/10";
+    if (score >= 50) return "text-amber-400 border-amber-500/30 bg-amber-500/10";
+    return "text-rose-400 border-rose-500/30 bg-rose-500/10";
+  };
+
+  const getScoreBarColor = (score: number) => {
+    if (score >= 75) return "bg-emerald-500";
+    if (score >= 50) return "bg-amber-500";
+    return "bg-rose-500";
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Header */}
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+      {/* Top Navbar */}
       <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-teal-500/20">
-              <GraduationCap className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+              <Briefcase className="w-5 h-5 text-white" />
             </div>
             <div>
-              <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-teal-200 bg-clip-text text-transparent">
-                StudyMate AI
+              <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-indigo-200 bg-clip-text text-transparent">
+                CareerMatch AI
               </span>
-              <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20">
-                Smart Study Planner
+              <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                Resume & Job Analyzer
               </span>
             </div>
           </div>
@@ -227,7 +218,7 @@ export default function Home() {
               )}
               {backendStatus === "connected" && (
                 <span className="flex items-center gap-1.5 text-emerald-400">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Live
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Live (:8000)
                 </span>
               )}
               {backendStatus === "disconnected" && (
@@ -235,16 +226,16 @@ export default function Home() {
                   <XCircle className="w-3.5 h-3.5" /> Offline
                 </span>
               )}
-              <button onClick={checkHealth} title="Refresh connection" className="text-slate-400 hover:text-white">
+              <button onClick={checkHealth} title="Refresh connection" className="text-slate-400 hover:text-white ml-1">
                 <RefreshCw className="w-3 h-3" />
               </button>
             </div>
 
             {backendStatus === "connected" && (
-              <div className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700">
-                <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                 <span className={geminiConfigured ? "text-emerald-400" : "text-amber-400"}>
-                  {geminiConfigured ? "Gemini 2.5 Flash" : "Demo Mode"}
+                  {geminiConfigured ? "Gemini 2.5 Active" : "Key Not Set"}
                 </span>
               </div>
             )}
@@ -252,329 +243,509 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-6 py-8 space-y-8">
-        {/* Intro */}
-        <div className="text-center space-y-2 max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs font-semibold">
-            <Flame className="w-3.5 h-3.5 text-amber-400" /> Devpost Build With AI: Basics
+        {/* Hero Section */}
+        <div className="text-center space-y-3 max-w-3xl mx-auto">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Powered by Google Gemini AI
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-            Stop Guessing, Start Studying with{" "}
-            <span className="bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent">
-              AI Precision
+          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
+            Bridge the Gap Between Your Resume and{" "}
+            <span className="bg-gradient-to-r from-indigo-400 via-violet-300 to-cyan-400 bg-clip-text text-transparent">
+              Your Target Job
             </span>
           </h1>
-          <p className="text-slate-400 text-sm">
-            Enter your subjects, exam dates, and daily study capacity. Gemini AI balances your schedule, priorities, and revision cycles.
+          <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
+            Upload your PDF resume and paste any job description. CareerMatch AI calculates your match score, identifies missing or unproven skills, and generates a personalized learning roadmap.
           </p>
         </div>
 
-        {/* Input Form Card */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl">
-          <form onSubmit={handleGenerate} className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pb-6 border-b border-slate-800">
-              {/* Start Date */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-teal-400" /> Plan Start Date
-                </label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-teal-500 transition-colors"
-                  required
-                />
-              </div>
-
-              {/* Daily Hours Slider */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-teal-400" /> Available Daily Study Hours
-                  </label>
-                  <span className="text-sm font-bold text-teal-400 bg-teal-500/10 px-2.5 py-0.5 rounded-lg border border-teal-500/20">
-                    {dailyHours} hrs / day
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="14"
-                  step="0.5"
-                  value={dailyHours}
-                  onChange={(e) => setDailyHours(parseFloat(e.target.value))}
-                  className="w-full accent-teal-500 cursor-pointer"
-                />
-                <div className="flex justify-between text-[11px] text-slate-500">
-                  <span>1 hr (Light review)</span>
-                  <span>6 hrs (Recommended)</span>
-                  <span>14 hrs (Intensive)</span>
-                </div>
-              </div>
+        {/* Missing API Key Warning if backend reports false */}
+        {backendStatus === "connected" && !geminiConfigured && (
+          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold text-amber-200">Gemini API Key Required</p>
+              <p className="text-amber-300/90 leading-relaxed">
+                To perform real AI resume match analysis, please add your Google Gemini API key to{" "}
+                <code className="bg-amber-950/60 px-1.5 py-0.5 rounded text-amber-200 border border-amber-800">
+                  backend/.env
+                </code>{" "}
+                as <code className="text-amber-200">GEMINI_API_KEY=your_key_here</code> and restart the backend server.
+              </p>
             </div>
+          </div>
+        )}
 
-            {/* Subjects List */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-teal-400" /> Your Exam Subjects & Deadlines
-                </label>
-                <button
-                  type="button"
-                  onClick={addSubject}
-                  className="text-xs font-semibold text-teal-400 hover:text-teal-300 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-teal-500/10 border border-teal-500/20 hover:bg-teal-500/20 transition-all"
+        {/* Global Error Banner */}
+        {errorMessage && (
+          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-3">
+            <XCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold text-rose-200">Analysis Error</p>
+              <p className="text-rose-300/90 leading-relaxed">{errorMessage}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Form View (when no analysis is displayed) */}
+        {!analysis ? (
+          <form onSubmit={handleAnalyze} className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* PDF Resume Upload Box */}
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-4">
+                <div>
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                    <label className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-indigo-400" /> 1. Upload Resume (PDF)
+                    </label>
+                    <span className="text-xs text-slate-500">Max size: 5 MB</span>
+                  </div>
+
+                  <p className="text-xs text-slate-400 mt-2">
+                    Upload your standard text-based PDF resume. Resumes are processed in-memory and never permanently stored.
+                  </p>
+                </div>
+
+                {/* Dropzone container */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 ${
+                    selectedFile
+                      ? "border-emerald-500/50 bg-emerald-500/5 hover:border-emerald-400"
+                      : "border-slate-800 hover:border-indigo-500/50 bg-slate-950/60 hover:bg-slate-950"
+                  }`}
                 >
-                  <Plus className="w-3.5 h-3.5" /> Add Subject
-                </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+
+                  {selectedFile ? (
+                    <>
+                      <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                        <FileCheck className="w-6 h-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-slate-100">{selectedFile.name}</p>
+                        <p className="text-xs text-slate-400 font-mono">
+                          {(selectedFile.size / 1024).toFixed(1)} KB • PDF Document
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedFile(null);
+                          if (fileInputRef.current) fileInputRef.current.value = "";
+                        }}
+                        className="text-xs text-rose-400 hover:text-rose-300 font-medium underline transition-colors"
+                      >
+                        Remove file
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-200">
+                          Click to browse or drop your PDF resume
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">Accepts .pdf format up to 5 MB</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {fileError && (
+                  <p className="text-xs text-rose-400 font-medium flex items-center gap-1.5">
+                    <XCircle className="w-3.5 h-3.5 shrink-0" /> {fileError}
+                  </p>
+                )}
+
+                {/* Privacy Badge */}
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] text-slate-400">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>In-Memory Processing: Your resume text is not stored on disk or shared.</span>
+                </div>
               </div>
 
-              <div className="space-y-3">
-                {subjects.map((sub, index) => (
-                  <div
-                    key={sub.id}
-                    className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-3.5 rounded-xl bg-slate-950/80 border border-slate-800"
-                  >
-                    <span className="text-xs font-bold text-slate-500 w-6">#{index + 1}</span>
-
-                    {/* Subject Name */}
-                    <div className="flex-1">
-                      <input
-                        type="text"
-                        placeholder="Subject name (e.g., Operating Systems)"
-                        value={sub.name}
-                        onChange={(e) => updateSubject(sub.id, "name", e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-teal-500"
-                        required
-                      />
-                    </div>
-
-                    {/* Exam Date */}
-                    <div className="w-full sm:w-44">
-                      <input
-                        type="date"
-                        value={sub.exam_date}
-                        onChange={(e) => updateSubject(sub.id, "exam_date", e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-teal-500"
-                        required
-                      />
-                    </div>
-
-                    {/* Difficulty Pill Selector */}
-                    <div className="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
-                      {(["Easy", "Medium", "Hard"] as const).map((lvl) => {
-                        const active = sub.difficulty === lvl;
-                        return (
-                          <button
-                            key={lvl}
-                            type="button"
-                            onClick={() => updateSubject(sub.id, "difficulty", lvl)}
-                            className={`text-xs px-2.5 py-1 rounded font-medium transition-all ${
-                              active
-                                ? lvl === "Hard"
-                                  ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
-                                  : lvl === "Medium"
-                                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                                  : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                                : "text-slate-400 hover:text-slate-200"
-                            }`}
-                          >
-                            {lvl}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Remove */}
+              {/* Job Description Input Box */}
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-4">
+                <div>
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                    <label className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                      <Briefcase className="w-4 h-4 text-indigo-400" /> 2. Paste Job Description
+                    </label>
                     <button
                       type="button"
-                      disabled={subjects.length <= 1}
-                      onClick={() => removeSubject(sub.id)}
-                      className="p-2 text-slate-500 hover:text-rose-400 disabled:opacity-30 disabled:hover:text-slate-500 transition-colors"
-                      title="Remove subject"
+                      onClick={loadSampleJob}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      + Load Junior Data Scientist Sample
                     </button>
                   </div>
-                ))}
+                  <p className="text-xs text-slate-400 mt-2">
+                    Paste the complete job requirements, required technologies, and responsibilities.
+                  </p>
+                </div>
+
+                <div className="relative">
+                  <textarea
+                    rows={9}
+                    placeholder="Paste job posting text here (responsibilities, required skills, tools, qualifications)..."
+                    value={jobDescription}
+                    onChange={(e) => setJobDescription(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-colors font-mono leading-relaxed"
+                    required
+                  />
+                  <div className="text-right text-[11px] text-slate-500 mt-1">
+                    {jobDescription.length} characters (min 30)
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Error Banner */}
-            {error && (
-              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* Submit Button */}
+            {/* Analyze Button */}
             <button
               type="submit"
-              disabled={loading}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 disabled:opacity-50 font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-teal-500/25 transition-all text-white cursor-pointer"
+              disabled={loading || !selectedFile || jobDescription.trim().length < 30}
+              className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-600 hover:from-indigo-600 hover:to-violet-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-xl shadow-indigo-500/25 transition-all text-white cursor-pointer"
             >
               {loading ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Gemini AI is analyzing exam dates & generating schedule...</span>
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <span>Extracting resume text & analyzing match with Gemini AI...</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>Generate Personalized Study Roadmap</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <Sparkles className="w-5 h-5" />
+                  <span>Analyze My Match</span>
+                  <ArrowRight className="w-5 h-5" />
                 </>
               )}
             </button>
           </form>
-        </div>
+        ) : (
+          /* Results Dashboard View */
+          <div className="space-y-8 animate-fadeIn">
+            {/* Top Bar with Reset Action */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+              <div>
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-wider">
+                  Analysis Complete
+                </span>
+                <h2 className="text-2xl font-bold text-slate-100 mt-1">Resume Alignment Overview</h2>
+              </div>
+              <button
+                onClick={handleReset}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Analyze Another Job</span>
+              </button>
+            </div>
 
-        {/* Generated Roadmap Display */}
-        {plan && (
-          <div className="space-y-6 animate-fadeIn">
-            {/* Top Summary Bar */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20">
-                      {plan.source === "gemini" ? "Gemini 2.5 Flash Generated" : "Demo Simulation Generated"}
-                    </span>
-                    <span className="text-xs text-slate-400">
-                      {plan.total_days} Days Plan • {plan.total_hours} Total Hours
-                    </span>
-                  </div>
-                  <h2 className="text-xl font-bold mt-1 text-slate-100">Study Roadmap Overview</h2>
+            {/* Score & Summary Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Match Score Card */}
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Overall Match</span>
+                  <Award className="w-5 h-5 text-indigo-400" />
                 </div>
 
-                <button
-                  onClick={handleCopy}
-                  className="inline-flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
-                >
-                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copied ? "Copied to Clipboard!" : "Copy Schedule"}</span>
-                </button>
+                {/* Big Score Display */}
+                <div className="text-center py-2">
+                  <div
+                    className={`inline-flex items-baseline justify-center px-6 py-4 rounded-2xl border ${getScoreColor(
+                      analysis.match_score
+                    )} font-extrabold`}
+                  >
+                    <span className="text-5xl sm:text-6xl tracking-tight">{analysis.match_score}</span>
+                    <span className="text-xl sm:text-2xl text-slate-400 ml-1">/100</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-3 font-medium">
+                    {analysis.match_score >= 75
+                      ? "High Match — Strong alignment with core qualifications"
+                      : analysis.match_score >= 50
+                      ? "Moderate Match — Foundational overlap with actionable skill gaps"
+                      : "Developing Match — Significant gaps in stated job requirements"}
+                  </p>
+                </div>
+
+                {/* Score Breakdown Bars */}
+                {analysis.score_breakdown && (
+                  <div className="space-y-3 pt-3 border-t border-slate-800 text-xs">
+                    <span className="font-semibold text-slate-300 block">Category Alignment:</span>
+                    <div>
+                      <div className="flex justify-between text-slate-400 mb-1">
+                        <span>Technical Skills</span>
+                        <span className="font-mono">{analysis.score_breakdown.technical_skills}%</span>
+                      </div>
+                      <div className="h-2 bg-slate-950 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${getScoreBarColor(analysis.score_breakdown.technical_skills)}`}
+                          style={{ width: `${analysis.score_breakdown.technical_skills}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-slate-400 mb-1">
+                        <span>Experience Alignment</span>
+                        <span className="font-mono">{analysis.score_breakdown.experience_alignment}%</span>
+                      </div>
+                      <div className="h-2 bg-slate-950 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${getScoreBarColor(analysis.score_breakdown.experience_alignment)}`}
+                          style={{ width: `${analysis.score_breakdown.experience_alignment}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-slate-400 mb-1">
+                        <span>Education & Fundamentals</span>
+                        <span className="font-mono">{analysis.score_breakdown.education_foundations}%</span>
+                      </div>
+                      <div className="h-2 bg-slate-950 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${getScoreBarColor(analysis.score_breakdown.education_foundations)}`}
+                          style={{ width: `${analysis.score_breakdown.education_foundations}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {plan.warning && (
-                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
-                  <span>{plan.warning}</span>
+              {/* Assessment Summary Card */}
+              <div className="lg:col-span-2 bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-4">
+                <div>
+                  <div className="flex items-center gap-2 pb-3 border-b border-slate-800">
+                    <Sparkles className="w-5 h-5 text-indigo-400" />
+                    <h3 className="text-base font-bold text-slate-100">Candidate Strength & Alignment Assessment</h3>
+                  </div>
+                  <div className="mt-4 text-sm text-slate-300 leading-relaxed whitespace-pre-wrap font-sans">
+                    {analysis.summary}
+                  </div>
                 </div>
-              )}
 
-              <p className="text-sm text-slate-300 leading-relaxed">{plan.plan_summary}</p>
+                {/* Disclaimer */}
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800/80 text-[11px] text-slate-400 leading-relaxed">
+                  <span className="font-semibold text-slate-300">Disclaimer: </span>
+                  {analysis.disclaimer}
+                </div>
+              </div>
+            </div>
 
-              {/* Subject Distribution Pills */}
-              <div className="space-y-2 pt-2">
-                <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-teal-400" /> Target Subject Allocation:
-                </span>
-                <div className="flex flex-wrap gap-2.5">
-                  {plan.subject_distribution.map((sd, i) => (
-                    <div
-                      key={i}
-                      className="text-xs px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center gap-2"
-                    >
-                      <span className="font-semibold text-slate-200">{sd.subject}</span>
-                      <span className="text-teal-400 font-mono font-bold">{sd.allocated_hours} hrs</span>
+            {/* Skills Alignment Breakdown (3 Columns) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* 1. Matching Skills */}
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-800">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-100">Matching Skills</h4>
+                    <p className="text-[11px] text-slate-400">Validated by your resume</p>
+                  </div>
+                </div>
+
+                {analysis.matching_skills.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {analysis.matching_skills.map((skill, idx) => (
                       <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded ${
-                          sd.difficulty === "Hard"
-                            ? "bg-rose-500/10 text-rose-400"
-                            : sd.difficulty === "Medium"
-                            ? "bg-amber-500/10 text-amber-400"
-                            : "bg-emerald-500/10 text-emerald-400"
-                        }`}
+                        key={idx}
+                        className="text-xs font-medium px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 flex items-center gap-1.5"
                       >
-                        {sd.difficulty}
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                        {skill}
                       </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">No direct matching skills detected.</p>
+                )}
+              </div>
+
+              {/* 2. Missing Skills */}
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-800">
+                  <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center font-bold">
+                    <XCircle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-100">Missing / Unproven</h4>
+                    <p className="text-[11px] text-slate-400">Required by job description</p>
+                  </div>
+                </div>
+
+                {analysis.missing_skills.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {analysis.missing_skills.map((skill, idx) => (
+                      <span
+                        key={idx}
+                        className="text-xs font-medium px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20 flex items-center gap-1.5"
+                      >
+                        <XCircle className="w-3 h-3 text-rose-400 shrink-0" />
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">No critical missing skills found.</p>
+                )}
+              </div>
+
+              {/* 3. Skills to Improve */}
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-800">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center font-bold">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-100">Skills to Strengthen</h4>
+                    <p className="text-[11px] text-slate-400">Needs deeper project proof</p>
+                  </div>
+                </div>
+
+                {analysis.improvement_skills.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {analysis.improvement_skills.map((skill, idx) => (
+                      <span
+                        key={idx}
+                        className="text-xs font-medium px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 flex items-center gap-1.5"
+                      >
+                        <TrendingUp className="w-3 h-3 text-amber-400 shrink-0" />
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">Skills demonstrated appear sufficient.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Resume Improvement Suggestions */}
+            {analysis.resume_suggestions.length > 0 && (
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-800">
+                  <FileText className="w-5 h-5 text-indigo-400" />
+                  <h3 className="text-base font-bold text-slate-100">Actionable Resume Suggestions</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {analysis.resume_suggestions.map((suggestion, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-start gap-3"
+                    >
+                      <div className="w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">
+                        {idx + 1}
+                      </div>
+                      <p className="text-xs text-slate-300 leading-relaxed">{suggestion}</p>
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Daily Schedule Cards */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-bold text-slate-200 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-teal-400" /> Day-by-Day Study Schedule
-              </h3>
+            {/* Recommended Projects to Demonstrate Skills */}
+            {analysis.project_recommendations.length > 0 && (
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-800">
+                  <Code2 className="w-5 h-5 text-indigo-400" />
+                  <h3 className="text-base font-bold text-slate-100">Recommended Portfolio Projects</h3>
+                </div>
 
-              <div className="grid grid-cols-1 gap-4">
-                {plan.daily_schedule.map((day) => (
-                  <div
-                    key={day.day_number}
-                    className="bg-slate-900/80 border border-slate-800/90 hover:border-slate-700 rounded-xl p-5 shadow-sm transition-all space-y-3.5"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/60 pb-2.5">
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-teal-500/10 text-teal-300 border border-teal-500/20 font-mono">
-                          Day {day.day_number}
-                        </span>
-                        <span className="text-xs font-medium text-slate-400">{day.date}</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {analysis.project_recommendations.map((proj, idx) => (
+                    <div
+                      key={idx}
+                      className="p-5 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-col justify-between space-y-3"
+                    >
+                      <div className="space-y-1.5">
+                        <h4 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-indigo-400" />
+                          {proj.title}
+                        </h4>
+                        <p className="text-xs text-slate-300 leading-relaxed">{proj.description}</p>
                       </div>
-                      <span className="text-xs font-medium text-slate-300 italic">{day.day_theme}</span>
-                    </div>
 
-                    {/* Sessions */}
-                    <div className="space-y-2">
-                      {day.sessions.map((sess, sidx) => (
-                        <div
-                          key={sidx}
-                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-slate-950/70 border border-slate-800/80"
-                        >
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-slate-100">{sess.subject}</span>
-                              <span
-                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                                  sess.session_type === "Optional Final Revision"
-                                    ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
-                                    : sess.session_type === "Revision"
-                                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                                    : sess.session_type === "Practice Questions"
-                                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                                    : sess.session_type === "Deep Study"
-                                    ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                                    : "bg-teal-500/20 text-teal-300 border border-teal-500/30"
-                                }`}
-                              >
-                                {sess.session_type}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-300">{sess.focus_topic}</p>
-                          </div>
-                          <div className="sm:text-right shrink-0">
-                            <span className="text-xs font-mono font-bold text-teal-400 bg-teal-500/10 px-2.5 py-1 rounded border border-teal-500/20">
-                              {sess.hours} hrs
+                      {proj.skills_demonstrated.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-2 border-t border-slate-900">
+                          {proj.skills_demonstrated.map((sk, sidx) => (
+                            <span
+                              key={sidx}
+                              className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 text-indigo-300 border border-indigo-500/20"
+                            >
+                              {sk}
                             </span>
-                          </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
-
-                    {/* Daily Tip */}
-                    {day.daily_tip && (
-                      <div className="flex items-start gap-2 text-xs text-slate-400 bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/50">
-                        <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-                        <span>{day.daily_tip}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Prioritized Learning Roadmap */}
+            {analysis.learning_roadmap.length > 0 && (
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-800">
+                  <BookOpen className="w-5 h-5 text-indigo-400" />
+                  <h3 className="text-base font-bold text-slate-100">Prioritized Learning Roadmap</h3>
+                </div>
+
+                <div className="space-y-3">
+                  {analysis.learning_roadmap.map((step, idx) => (
+                    <div
+                      key={idx}
+                      className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                            {step.phase}
+                          </span>
+                          <span className="text-xs font-bold text-slate-200">{step.focus}</span>
+                        </div>
+                        {step.action_items.length > 0 && (
+                          <ul className="text-xs text-slate-400 list-disc list-inside space-y-0.5 mt-1">
+                            {step.action_items.map((action, aidx) => (
+                              <li key={aidx}>{action}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
 
       {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500 mt-auto">
-        <p>StudyMate AI • Built for Devpost Build With AI: Basics Hackathon</p>
-        <p className="text-slate-600 mt-1">Next.js • FastAPI • Google Gemini 2.5 Flash</p>
+        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p>CareerMatch AI • AI-Powered Resume & Job Match Analyzer</p>
+          <div className="flex items-center gap-4 text-slate-400">
+            <span className="text-slate-600">FastAPI • Next.js • Google Gemini</span>
+          </div>
+        </div>
       </footer>
     </div>
   );

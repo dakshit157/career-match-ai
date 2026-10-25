@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Devpost Hackathon Project | AI Full-Stack",
-  description: "Next.js + FastAPI + Google Gemini hackathon starter template",
+  title: "CareerMatch AI — AI-Powered Resume & Job Match Analyzer",
+  description: "Analyze how well your resume matches any job description with Google Gemini AI. Discover missing skills, resume improvement tips, and a personalized learning roadmap.",
 };
 
 export default function RootLayout({

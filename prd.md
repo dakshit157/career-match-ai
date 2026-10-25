@@ -1,79 +1,83 @@
 # Product Requirements Document (PRD)
 
-## Project Title: StudyMate AI – Smart Study Planner
-**Event:** Devpost Build With AI: Basics Hackathon  
-**Target Completion:** Single working MVP feature  
-**Author:** B.Tech IT Student / Antigravity Pair  
+## Project Title: CareerMatch AI — AI-Powered Resume & Job Match Analyzer
+**Target User:** Students, recent college graduates, and job applicants  
+**Status:** MVP Implemented  
 
 ---
 
-## 1. Objective & Value Proposition
-StudyMate AI eliminates the anxiety and cognitive fatigue of study scheduling. By analyzing exam dates, subject difficulty, and daily study capacity, it automatically generates a personalized, realistic study roadmap using Google Gemini AI.
+## 1. Executive Summary
+CareerMatch AI empowers job applicants to demystify job postings. By matching candidate credentials against employer requirements using Google Gemini AI, it delivers an objective evaluation and a concrete action plan to optimize application success.
 
 ---
 
 ## 2. User Persona
-- **Name:** Rahul Verma
-- **Role:** 3rd Year B.Tech IT Student
-- **Scenario:** Semester exams start in 12 days. Rahul has 4 subjects: Operating Systems (Hard), Computer Networks (Medium), Software Engineering (Easy), and Web Tech (Medium). He can study 6 hours a day.
-- **Pain Point:** He doesn't know how to split his 6 hours without burning out or neglecting the hardest subject before its exam.
-- **Goal:** Input his exam timetable once, click "Generate Schedule", and get an immediate daily plan with revision built in.
+- **Name:** Priya Sharma
+- **Background:** Recent B.Tech IT graduate aspiring to enter the data analytics & data science field.
+- **Pain Point:** Applies to numerous Junior Data Scientist roles on LinkedIn/Devpost without hearing back. Unsure whether her resume lacks key keywords, needs stronger projects, or is genuinely misaligned.
+- **Goal:** Upload her existing resume, paste a target job description, and get instant, honest feedback on missing qualifications and recommended bridge projects.
 
 ---
 
 ## 3. User Journey
-1. **Landing & Form Entry**: Rahul opens StudyMate AI. He sees a clean, welcoming interface.
-2. **Subject Input**: Rahul selects his daily study hours (e.g. 6 hrs/day), enters each subject name, selects its exam date, and tags the difficulty level.
-3. **Generation**: Rahul clicks **"Generate Study Roadmap"**. A loading indicator shows Gemini analyzing his schedule.
-4. **Roadmap Review**: Within seconds, the day-by-day plan appears:
-   - Summary statistics (Total days, total hours, subject distribution).
-   - Card for each calendar day listing specific study blocks, focus topics, and revision milestones.
-5. **Action**: Rahul copies the schedule to his notes with a single click.
+1. **Landing:** Priya opens CareerMatch AI. She sees a clean, professional dashboard and a privacy notice ensuring her document is processed in-memory.
+2. **Input:**
+   - She clicks to upload her PDF resume (e.g. `priya_sharma_resume.pdf`). The UI validates the file format and displays its file size.
+   - She pastes the target job description (or uses the sample button to test).
+3. **Trigger:** She clicks **"Analyze My Match"**. The button animates with a loading indicator while Gemini analyzes the text.
+4. **Results Review:** Within seconds, the comprehensive dashboard renders:
+   - Overall match score (e.g. 78/100) with category alignment bars.
+   - Objective summary of candidate strengths.
+   - Skill badges: matching skills (green), missing skills (red), and skills needing improvement (amber).
+   - Specific, truthful suggestions to refine her resume bullet points.
+   - Portfolio project recommendations with tech stacks.
+   - Prioritized learning roadmap (Phase 1, Phase 2, etc.).
+5. **Next Actions:** Priya clicks **"Analyze Another Job"** to test a different posting without refreshing the app.
 
 ---
 
 ## 4. Functional Requirements
 
-### FR-1: Student Input Form
-- **FR-1.1**: User can input `daily_hours` (numeric slider or number input, between 1 and 16).
-- **FR-1.2**: User can select a `start_date` (defaults to current date).
-- **FR-1.3**: User can add 1 to 8 subjects.
-- **FR-1.4**: Each subject requires:
-  - Subject Name (string, 2–50 chars).
-  - Exam Date (ISO date, must be on or after `start_date`).
-  - Difficulty Level (dropdown / pills: `Easy`, `Medium`, `Hard`).
-- **FR-1.5**: User can remove a subject row (minimum 1 subject retained).
+### FR-1: Document Ingestion & Validation
+- **FR-1.1**: Accept files with `.pdf` extension or `application/pdf` MIME type.
+- **FR-1.2**: Enforce maximum file size limit of 5 MB.
+- **FR-1.3**: Extract text in-memory using `pypdf`.
+- **FR-1.4**: Reject empty, scanned, or unreadable PDFs with a clear error prompt.
+- **FR-1.5**: Prohibit permanent disk persistence of uploaded resume files.
 
-### FR-2: Client-side & Server-side Validation
-- **FR-2.1**: Ensure at least one subject is added.
-- **FR-2.2**: Ensure exam dates are in the future relative to `start_date`.
-- **FR-2.3**: Prevent submission with blank subject names.
+### FR-2: Job Description Ingestion
+- **FR-2.1**: Large multiline text area accepting target job description.
+- **FR-2.2**: Enforce minimum character threshold (30 characters) to prevent empty analysis.
+- **FR-2.3**: One-click "Load Sample" button for testing.
 
-### FR-3: AI Schedule Generation (Google Gemini 2.5 Flash)
-- **FR-3.1**: The FastAPI backend formats a specialized prompt including the student's constraints.
-- **FR-3.2**: Prompt requires Gemini to:
-  - Allocate more hours to "Hard" subjects and subjects with earlier exam dates.
-  - Dedicate the day immediately prior to an exam to full revision of that subject.
-  - Balance daily hours to strictly match the student's stated `daily_hours`.
-  - Include quick study tips for key days.
-- **FR-3.3**: Enforce JSON output mode from Gemini to guarantee structured rendering.
+### FR-3: AI Analysis (Google Gemini 2.5 Flash)
+- **FR-3.1**: Secure backend endpoint: `POST /api/analyze-match`.
+- **FR-3.2**: Prompt instructions enforce strict truthfulness (no fabricated experience).
+- **FR-3.3**: Distinguish between absent skills and true deficiencies.
+- **FR-3.4**: Return validated structured JSON matching the Pydantic schema:
+  - `match_score` (0–100)
+  - `score_breakdown` (technical, experience, education)
+  - `summary`
+  - `matching_skills`
+  - `missing_skills`
+  - `improvement_skills`
+  - `resume_suggestions`
+  - `project_recommendations`
+  - `learning_roadmap`
+  - `disclaimer`
 
-### FR-4: Roadmap Visualization
-- **FR-4.1**: Display executive summary banner (Total days, total study hours, subject badges).
-- **FR-4.2**: Display chronologically sorted Day Cards.
-- **FR-4.3**: Each Day Card displays:
-  - Date and Day Number (e.g., "Day 1 - Monday, Oct 26").
-  - Study sessions with subject name, assigned hours, and focus objective.
-  - Visual badges (`Revision`, `Core Study`, `Exam Day`).
-  - Helpful AI motivational tip.
-
-### FR-5: Copy & Export
-- **FR-5.1**: Provide a "Copy Schedule" button that formats the plan into clean plain text for pasting into WhatsApp, Notion, or Notes.
+### FR-4: Results Visualization
+- **FR-4.1**: Prominent match score indicator with dynamic color thresholds.
+- **FR-4.2**: Categorized skill pills with distinct status icons.
+- **FR-4.3**: Actionable resume suggestions checklist.
+- **FR-4.4**: Project recommendation cards showing title, overview, and skills demonstrated.
+- **FR-4.5**: Step-by-step roadmap cards.
+- **FR-4.6**: Explicit legal/methodology disclaimer that the score is an algorithmic estimate, not a hiring guarantee.
 
 ---
 
-## 5. Non-Functional Requirements
-- **Simplicity:** Zero external logins or database configuration required for judges to run and evaluate.
-- **Speed:** Response delivered within 5–8 seconds.
-- **Mobile Responsive:** Modern responsive layout across smartphones, tablets, and laptops.
-- **Error Handling:** Helpful error messages if the Gemini API key is missing or invalid.
+## 5. Non-Functional & Security Requirements
+- **Privacy:** Resume text and job description are sent in-memory over HTTPS to Google's Gemini API; no documents are stored in local databases or logs.
+- **Performance:** End-to-end extraction and AI analysis returned in 3–6 seconds.
+- **Reliability:** Handles malformed AI output, network failures, and missing API keys gracefully with clear user guidance.
+- **Usability:** Fully responsive layout across mobile and desktop devices.

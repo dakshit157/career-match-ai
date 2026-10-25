@@ -1,60 +1,57 @@
-# StudyMate AI – Project Scope
+# CareerMatch AI — Project Scope
 
-**Hackathon:** Devpost Build With AI: Basics  
-**Track / Project:** Project 2 – StudyMate AI (Smart Study Planner)  
-**Target Audience:** College and university students preparing for semester exams (1–4 weeks preparation horizon).
+**Project Name:** CareerMatch AI — AI-Powered Resume and Job Match Analyzer  
+**Target Audience:** Students, recent graduates, and career switchers applying for tech and professional jobs.
 
 ---
 
 ## 1. Problem Statement
-College students often struggle to organize their study time before semester exams. With multiple subjects of varying difficulty, competing deadlines, and limited daily hours, students either:
-- Spend too much time on easy subjects and run out of time for difficult ones.
-- Procrastinate due to overwhelming workloads and lack of a concrete daily plan.
-- Fail to allocate sufficient time for revision before exam dates.
+Job seekers frequently struggle to gauge how closely their resumes align with target job descriptions:
+- High rejection rates without constructive feedback on why an application failed.
+- Ambiguity about which skills are truly missing vs. merely understated or missing proof.
+- Lack of actionable next steps (projects and focused learning) to bridge identified qualification gaps.
 
 ## 2. Solution Overview
-**StudyMate AI** is a lightweight, beginner-friendly web application that takes a student's subjects, exam dates, difficulty levels, and daily available study hours, and uses **Google Gemini AI** to produce an intelligent, day-by-day study roadmap with built-in revision cycles.
+**CareerMatch AI** is a lightweight, high-impact web application that allows candidates to upload their PDF resume and paste any target job description. Powered by **Google Gemini 2.5 Flash**, it extracts resume credentials in-memory, performs structured alignment analysis, and provides an objective match score, matching skills, missing skills, resume improvement suggestions, portfolio project recommendations, and a prioritized learning roadmap.
 
 ---
 
-## 3. In-Scope for MVP (One Core Working Feature)
+## 3. In-Scope for MVP
+1. **Secure In-Memory PDF Processing**:
+   - PDF file validation (max 5 MB limit).
+   - In-memory text extraction using `pypdf`.
+   - Strict handling of blank, scanned, or corrupted files with clear user feedback.
+   - Zero permanent storage of resume documents on disk.
 
-### ✅ Core Feature: Intelligent Study Schedule Generation
-1. **Student Input Form**:
-   - Start Date (defaults to tomorrow or today).
-   - Available study hours per day (e.g., 2 to 12 hours).
-   - Dynamic subject list:
-     - Subject Name (e.g., "Data Structures", "Database Management").
-     - Exam Date (date picker).
-     - Perceived Difficulty (`Easy`, `Medium`, `Hard`).
-   - Add/Remove subject rows dynamically.
+2. **Job Description Input**:
+   - Text input supporting up to full multi-page job descriptions.
+   - Quick-load sample option for testing (Junior Data Scientist role).
 
-2. **AI Study Engine (FastAPI + Google Gemini 2.5 Flash)**:
-   - Validates user input (dates in the future, positive hours, exam order).
-   - Constructs a structured system prompt instructing Gemini to allocate study hours proportionately based on difficulty and exam proximity.
-   - Enforces a strict JSON response schema from Gemini.
+3. **Gemini AI Analysis (`POST /api/analyze-match`)**:
+   - Structured JSON response schema enforced via Gemini API (`gemini-2.5-flash`).
+   - Grounded evaluation: strict prompt forbidding fabrication of credentials.
+   - Categorized skills breakdown (`matching_skills`, `missing_skills`, `improvement_skills`).
+   - Concrete project recommendations and step-by-step learning roadmap.
 
-3. **Roadmap Display & Interaction**:
-   - High-level overview: Total study days, total planned hours, and difficulty breakdown.
-   - Day-by-day schedule cards showing morning/afternoon/evening sessions or time allocations.
-   - Visual badges for session types (`Deep Study`, `Revision`, `Exam Day`).
-   - One-click "Copy Schedule to Clipboard".
+4. **Polished Results Dashboard**:
+   - Visual match score card (0–100) with category breakdown.
+   - Color-coded badges for validated vs. missing skills.
+   - Truthful resume recommendations checklist.
+   - One-click "Analyze Another Job" workflow without full page reload.
 
 ---
 
 ## 4. Out-of-Scope (Deferred Beyond MVP)
-To keep the application simple, reliable, and strictly hackathon-compliant:
-- ❌ User authentication (login / signup / passwords).
-- ❌ Database storage (SQLite / Postgres) — the MVP is stateless, instant, and clean.
-- ❌ External calendar syncing (Google Calendar, Outlook).
-- ❌ Push notifications and SMS study reminders.
-- ❌ PDF file exports (copy-to-clipboard is provided instead).
-- ❌ Multi-language localization.
+- User authentication, profiles, and password management.
+- Persistent databases (SQLite/PostgreSQL) — keeping analysis instant, stateless, and private.
+- Optical Character Recognition (OCR) for scanned image-only PDFs.
+- Automatic resume rewriting or docx/pdf file export.
+- Integration with third-party job boards (LinkedIn, Indeed API).
 
 ---
 
 ## 5. Technology Stack
 - **Frontend:** Next.js (TypeScript, Tailwind CSS, Lucide React Icons)
-- **Backend:** Python FastAPI (Pydantic v2, Uvicorn)
+- **Backend:** Python FastAPI (Pydantic v2, Uvicorn, pypdf, python-multipart)
 - **AI Model:** Google Gemini 2.5 Flash (`google-genai` SDK)
-- **Storage:** None (Stateless architecture for MVP)
+- **Configuration:** `backend/.env`
