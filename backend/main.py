@@ -17,16 +17,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configure CORS
+# Configure CORS (allow frontend in dev and deployed environments)
+cors_origins_env = os.getenv("CORS_ORIGIN", "http://localhost:3000")
 origins = [
-    os.getenv("CORS_ORIGIN", "http://localhost:3000"),
-    "http://127.0.0.1:3000",
-    "http://localhost:3000",
+    origin.strip() for origin in cors_origins_env.split(",") if origin.strip()
 ]
+# Default local origins
+for local_origin in ["http://localhost:3000", "http://127.0.0.1:3000"]:
+    if local_origin not in origins:
+        origins.append(local_origin)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=origins if "*" not in origins else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,8 +74,88 @@ class AnalyzeMatchResponse(BaseModel):
     resume_suggestions: List[str] = Field(default_factory=list, description="Actionable, truthful resume improvements")
     project_recommendations: List[ProjectRecommendation] = Field(default_factory=list)
     learning_roadmap: List[RoadmapPhase] = Field(default_factory=list)
+    is_demo: bool = Field(default=False, description="Flag indicating if this is sample demo data")
+    demo_badge: Optional[str] = Field(default=None, description="Display label for demo data")
     disclaimer: str = Field(
         default="This match score is an algorithmic estimate based on the provided text, not a probability or guarantee of employment."
+    )
+
+
+# --- Demo Data Generator (For Judges & Evaluation without Gemini API Key) ---
+
+def get_sample_demo_analysis() -> AnalyzeMatchResponse:
+    """Returns a realistic pre-computed analysis for the sample Junior Data Scientist profile."""
+    return AnalyzeMatchResponse(
+        match_score=78,
+        score_breakdown=ScoreBreakdown(
+            technical_skills=84,
+            experience_alignment=72,
+            education_foundations=88
+        ),
+        summary=(
+            "Candidate Priya Sharma demonstrates strong alignment with core Python programming, SQL querying, "
+            "and exploratory data analysis using Pandas and Matplotlib. Her B.Tech coursework provides a solid foundation "
+            "in statistics, probability, and database management. To become an even stronger candidate for this Junior Data Scientist role, "
+            "she should bridge the gap in model deployment, expand her practical machine learning portfolio, "
+            "and acquire hands-on experience with A/B testing and containerization."
+        ),
+        matching_skills=[
+            "Python Programming",
+            "Relational Database Querying (SQL)",
+            "NumPy & Pandas",
+            "Exploratory Data Analysis (EDA)",
+            "Data Visualization (Matplotlib & Seaborn)",
+            "Probability & Statistics Fundamentals",
+            "Supervised Machine Learning Concepts"
+        ],
+        missing_skills=[
+            "A/B Testing & Online Experimentation",
+            "Docker Containerization",
+            "Cloud Data Ingestion (AWS/GCP)"
+        ],
+        improvement_skills=[
+            "End-to-End ML Pipeline Deployment (Needs production API proof)",
+            "Model Evaluation Metrics (ROC-AUC, Precision-Recall curve trade-offs)"
+        ],
+        resume_suggestions=[
+            "Quantify the business impact of your customer churn project (e.g., 'Processed 50,000 customer records with an 84% classification accuracy').",
+            "Add a dedicated 'Technical Skills' summary highlighting Scikit-Learn, Pandas, and SQL window functions near the top.",
+            "Include links to your public GitHub repositories showcasing your exploratory data analysis notebooks.",
+            "Explicitly mention statistical hypothesis testing techniques applied during academic coursework."
+        ],
+        project_recommendations=[
+            ProjectRecommendation(
+                title="End-to-End Customer Churn API with FastAPI & Scikit-Learn",
+                description="Upgrade your churn analysis model into a production REST API that accepts customer attributes and serves real-time predictions with automated model evaluation metrics.",
+                skills_demonstrated=["Python", "Machine Learning", "FastAPI", "Scikit-Learn"]
+            ),
+            ProjectRecommendation(
+                title="E-Commerce A/B Testing & Conversion Analytics Simulation",
+                description="Simulate and analyze an e-commerce user conversion experiment using Python (SciPy/Statsmodels), computing two-sample t-tests, p-values, and visualizing statistical significance.",
+                skills_demonstrated=["Statistics", "A/B Testing", "Pandas", "Data Visualization"]
+            )
+        ],
+        learning_roadmap=[
+            RoadmapPhase(
+                phase="Phase 1: High Priority (Week 1–2)",
+                focus="Statistical Hypothesis Testing & A/B Experimentation",
+                action_items=[
+                  "Study two-sample t-tests, chi-squared tests, and confidence intervals in Python with SciPy.",
+                  "Implement an A/B testing evaluation notebook comparing conversion rates on simulated user cohorts."
+                ]
+            ),
+            RoadmapPhase(
+                phase="Phase 2: Moderate Priority (Week 3–4)",
+                focus="Model Evaluation Depth & Basic Docker Containerization",
+                action_items=[
+                  "Master cross-validation, precision-recall trade-offs, and confusion matrices.",
+                  "Package a Python data processing script into a lightweight Docker container."
+                ]
+            )
+        ],
+        is_demo=True,
+        demo_badge="Demo Data — Not a live AI analysis",
+        disclaimer="Demo Data — Not a live AI analysis. This match score is an illustrative estimate based on the sample job requirements, not a guarantee of employment."
     )
 
 
@@ -117,13 +200,19 @@ def extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str:
 
 @app.get("/health", response_model=HealthResponse)
 def health_check():
-    api_key = os.getenv("GEMINI_API_KEY", "")
-    is_gemini_configured = bool(api_key and api_key != "your_actual_api_key" and len(api_key.strip()) > 5)
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    is_gemini_configured = bool(api_key and api_key != "your_actual_api_key" and api_key != "your_gemini_api_key_here" and len(api_key) > 5)
     return HealthResponse(
         status="ok",
         service="CareerMatch AI Backend (FastAPI)",
         gemini_configured=is_gemini_configured
     )
+
+
+@app.get("/api/demo-analysis", response_model=AnalyzeMatchResponse)
+def get_demo_analysis():
+    """Returns instant sample demo data so hackathon judges can explore the complete analysis without needing an API key."""
+    return get_sample_demo_analysis()
 
 
 @app.post("/api/analyze-match", response_model=AnalyzeMatchResponse)
@@ -158,15 +247,16 @@ def analyze_match(
     # 4. Extract Resume Text in-memory
     resume_text = extract_text_from_pdf_bytes(pdf_bytes)
 
-    # 5. Check Gemini API Key
+    # 5. Check Gemini API Key (configured by the application owner on the backend host)
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
-    is_gemini_configured = bool(api_key and api_key != "your_actual_api_key" and len(api_key) > 5)
+    is_gemini_configured = bool(api_key and api_key != "your_actual_api_key" and api_key != "your_gemini_api_key_here" and len(api_key) > 5)
     if not is_gemini_configured:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
-                "Google Gemini API key is not configured. "
-                "To enable real AI resume analysis, add your GEMINI_API_KEY to backend/.env and restart the backend."
+                "Google Gemini API is not configured on this server instance. "
+                "The application owner can set GEMINI_API_KEY in the backend host environment. "
+                "You can click 'Try Demo Analysis' to explore the complete results dashboard."
             )
         )
 
@@ -279,6 +369,8 @@ Analyze the resume against this job description and output a valid JSON object m
             resume_suggestions=data.get("resume_suggestions", []),
             project_recommendations=project_recs,
             learning_roadmap=learning_roadmap,
+            is_demo=False,
+            demo_badge=None,
             disclaimer=data.get(
                 "disclaimer",
                 "This match score is an algorithmic estimate based on the provided text, not a probability or guarantee of employment."
@@ -295,7 +387,7 @@ Analyze the resume against this job description and output a valid JSON object m
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Gemini API request failed: {str(e)}"
+            detail=f"Gemini API request failed: {str(e)}. You can click 'Try Demo Analysis' to explore the evaluation dashboard."
         )
 
 

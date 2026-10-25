@@ -27,13 +27,24 @@ def test_health():
     assert "CareerMatch AI" in h.service
     print("[PASS] 1. Health check endpoint reports live status and service name.")
 
+def test_demo_analysis():
+    demo = main.get_demo_analysis()
+    assert demo.is_demo is True
+    assert demo.demo_badge == "Demo Data — Not a live AI analysis"
+    assert demo.match_score == 78
+    assert len(demo.matching_skills) >= 5
+    assert len(demo.missing_skills) >= 2
+    assert len(demo.project_recommendations) >= 2
+    assert len(demo.learning_roadmap) >= 2
+    print("[PASS] 2. Demo analysis endpoint returns complete judge-friendly sample data.")
+
 def test_pdf_extraction():
     text = main.extract_text_from_pdf_bytes(SAMPLE_RESUME_PDF)
     assert "Priya Sharma" in text
     assert "Python" in text
     assert "SQL" in text
     assert len(text) > 200
-    print(f"[PASS] 2. In-memory PDF text extraction succeeded ({len(text)} characters).")
+    print(f"[PASS] 3. In-memory PDF text extraction succeeded ({len(text)} characters).")
 
 def test_corrupted_pdf_rejection():
     try:
@@ -41,7 +52,7 @@ def test_corrupted_pdf_rejection():
         assert False, "Should raise HTTPException"
     except HTTPException as e:
         assert e.status_code == 400
-        print("[PASS] 3. Corrupted / unreadable PDF is rejected with HTTP 400.")
+        print("[PASS] 4. Corrupted / unreadable PDF is rejected with HTTP 400.")
 
 def test_short_job_desc():
     mock_file = UploadFile(filename="resume.pdf", file=io.BytesIO(SAMPLE_RESUME_PDF))
@@ -51,7 +62,7 @@ def test_short_job_desc():
     except HTTPException as e:
         assert e.status_code == 400
         assert "job description is too short" in e.detail.lower()
-        print("[PASS] 4. Short / empty job description (<30 chars) is rejected with HTTP 400.")
+        print("[PASS] 5. Short / empty job description (<30 chars) is rejected with HTTP 400.")
 
 def test_non_pdf_rejection():
     mock_file = UploadFile(filename="resume.docx", file=io.BytesIO(b"word document text"))
@@ -61,7 +72,7 @@ def test_non_pdf_rejection():
     except HTTPException as e:
         assert e.status_code == 400
         assert "only pdf" in e.detail.lower()
-        print("[PASS] 5. Non-PDF file upload is rejected with HTTP 400.")
+        print("[PASS] 6. Non-PDF file upload is rejected with HTTP 400.")
 
 def test_oversized_file_rejection():
     big_bytes = b"X" * (6 * 1024 * 1024)
@@ -72,20 +83,20 @@ def test_oversized_file_rejection():
     except HTTPException as e:
         assert e.status_code == 400
         assert "exceeds the 5 mb limit" in e.detail.lower()
-        print("[PASS] 6. File exceeding 5 MB limit is rejected with HTTP 400.")
+        print("[PASS] 7. File exceeding 5 MB limit is rejected with HTTP 400.")
 
 def test_missing_api_key_handling():
     mock_file = UploadFile(filename="resume.pdf", file=io.BytesIO(SAMPLE_RESUME_PDF))
-    if not os.getenv("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") == "your_actual_api_key":
+    if not os.getenv("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") in ["your_actual_api_key", "your_gemini_api_key_here"]:
         try:
             main.analyze_match(resume=mock_file, job_description=SAMPLE_JOB_DESC)
             assert False, "Should raise HTTPException"
         except HTTPException as e:
             assert e.status_code == 503
-            assert "gemini api key is not configured" in e.detail.lower()
-            print("[PASS] 7. Unset GEMINI_API_KEY returns clear HTTP 503 configuration error.")
+            assert "gemini api is not configured" in e.detail.lower()
+            print("[PASS] 8. Unset backend GEMINI_API_KEY returns clear HTTP 503 configuration error.")
     else:
-        print("[INFO] 7. GEMINI_API_KEY is configured in environment.")
+        print("[INFO] 8. Backend GEMINI_API_KEY is configured in environment.")
 
 def test_response_schema_validation():
     sample_response = main.AnalyzeMatchResponse(
@@ -120,11 +131,12 @@ def test_response_schema_validation():
     assert len(dumped["matching_skills"]) == 5
     assert len(dumped["missing_skills"]) == 2
     assert "algorithmic estimate" in dumped["disclaimer"].lower()
-    print("[PASS] 8. Full response schema validates and serializes correctly.")
+    print("[PASS] 9. Full response schema validates and serializes correctly.")
 
 if __name__ == "__main__":
     print("--- Starting CareerMatch AI Backend Test Suite ---")
     test_health()
+    test_demo_analysis()
     test_pdf_extraction()
     test_corrupted_pdf_rejection()
     test_short_job_desc()
@@ -132,4 +144,4 @@ if __name__ == "__main__":
     test_oversized_file_rejection()
     test_missing_api_key_handling()
     test_response_schema_validation()
-    print("--- ALL 8 TESTS PASSED WITH ZERO VIOLATIONS ---")
+    print("--- ALL 9 TESTS PASSED WITH ZERO VIOLATIONS ---")

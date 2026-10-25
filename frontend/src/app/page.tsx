@@ -15,12 +15,11 @@ import {
   TrendingUp,
   BookOpen,
   Award,
-  Layers,
-  ChevronRight,
   FileCheck,
   RotateCcw,
-  ExternalLink,
-  Code2
+  Code2,
+  PlayCircle,
+  Info
 } from "lucide-react";
 
 interface ProjectRecommendation {
@@ -51,8 +50,12 @@ interface AnalyzeMatchResponse {
   resume_suggestions: string[];
   project_recommendations: ProjectRecommendation[];
   learning_roadmap: RoadmapPhase[];
+  is_demo?: boolean;
+  demo_badge?: string;
   disclaimer: string;
 }
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const SAMPLE_JOB_DESCRIPTION = `Job Title: Junior Data Scientist
 Location: Remote / Hybrid
@@ -78,6 +81,7 @@ export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [demoLoading, setDemoLoading] = useState<boolean>(false);
   const [analysis, setAnalysis] = useState<AnalyzeMatchResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -90,7 +94,7 @@ export default function Home() {
 
   const checkHealth = async () => {
     try {
-      const res = await fetch("http://localhost:8000/health", { cache: "no-store" });
+      const res = await fetch(`${API_BASE_URL}/health`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setBackendStatus("connected");
@@ -131,6 +135,7 @@ export default function Home() {
     setJobDescription(SAMPLE_JOB_DESCRIPTION);
   };
 
+  // Run Real AI Analysis
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -152,7 +157,7 @@ export default function Home() {
       formData.append("resume", selectedFile);
       formData.append("job_description", jobDescription.trim());
 
-      const res = await fetch("http://localhost:8000/api/analyze-match", {
+      const res = await fetch(`${API_BASE_URL}/api/analyze-match`, {
         method: "POST",
         body: formData,
       });
@@ -168,6 +173,25 @@ export default function Home() {
       setErrorMessage(err instanceof Error ? err.message : "An unexpected error occurred during analysis.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Run Demo Analysis (No Key Required for Judges)
+  const handleRunDemo = async () => {
+    setErrorMessage(null);
+    setDemoLoading(true);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/demo-analysis`, { cache: "no-store" });
+      if (!res.ok) {
+        throw new Error("Could not retrieve sample demo analysis.");
+      }
+      const data: AnalyzeMatchResponse = await res.json();
+      setAnalysis(data);
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : "Could not load sample demo data.");
+    } finally {
+      setDemoLoading(false);
     }
   };
 
@@ -218,7 +242,7 @@ export default function Home() {
               )}
               {backendStatus === "connected" && (
                 <span className="flex items-center gap-1.5 text-emerald-400">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Live (:8000)
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Online
                 </span>
               )}
               {backendStatus === "disconnected" && (
@@ -235,7 +259,7 @@ export default function Home() {
               <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700">
                 <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                 <span className={geminiConfigured ? "text-emerald-400" : "text-amber-400"}>
-                  {geminiConfigured ? "Gemini 2.5 Active" : "Key Not Set"}
+                  {geminiConfigured ? "Gemini 2.5 Active" : "Demo Mode"}
                 </span>
               </div>
             )}
@@ -248,7 +272,7 @@ export default function Home() {
         {/* Hero Section */}
         <div className="text-center space-y-3 max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Powered by Google Gemini AI
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Devpost Build With AI: Basics Hackathon
           </div>
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
             Bridge the Gap Between Your Resume and{" "}
@@ -257,35 +281,45 @@ export default function Home() {
             </span>
           </h1>
           <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
-            Upload your PDF resume and paste any job description. CareerMatch AI calculates your match score, identifies missing or unproven skills, and generates a personalized learning roadmap.
+            Upload your PDF resume and paste any job description to discover matching vs. missing skills, actionable resume bullet-point tips, and a prioritized learning roadmap.
           </p>
-        </div>
 
-        {/* Missing API Key Warning if backend reports false */}
-        {backendStatus === "connected" && !geminiConfigured && (
-          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="font-semibold text-amber-200">Gemini API Key Required</p>
-              <p className="text-amber-300/90 leading-relaxed">
-                To perform real AI resume match analysis, please add your Google Gemini API key to{" "}
-                <code className="bg-amber-950/60 px-1.5 py-0.5 rounded text-amber-200 border border-amber-800">
-                  backend/.env
-                </code>{" "}
-                as <code className="text-amber-200">GEMINI_API_KEY=your_key_here</code> and restart the backend server.
-              </p>
+          {/* Quick Demo Action for Judges */}
+          {!analysis && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleRunDemo}
+                disabled={demoLoading}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-800 text-indigo-300 hover:text-indigo-200 border border-indigo-500/30 hover:border-indigo-500/50 text-xs font-semibold shadow-md transition-all cursor-pointer"
+              >
+                {demoLoading ? (
+                  <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
+                ) : (
+                  <PlayCircle className="w-4 h-4 text-indigo-400" />
+                )}
+                <span>Try Demo Analysis (Instant Sample — No Key Required)</span>
+              </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Global Error Banner */}
         {errorMessage && (
-          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-3">
-            <XCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="font-semibold text-rose-200">Analysis Error</p>
-              <p className="text-rose-300/90 leading-relaxed">{errorMessage}</p>
+          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <XCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-rose-200">Analysis Notice</p>
+                <p className="text-rose-300/90 leading-relaxed">{errorMessage}</p>
+              </div>
             </div>
+            <button
+              onClick={handleRunDemo}
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 text-xs font-medium transition-colors"
+            >
+              Try Demo Instead
+            </button>
           </div>
         )}
 
@@ -372,7 +406,7 @@ export default function Home() {
                 {/* Privacy Badge */}
                 <div className="flex items-center gap-2 p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] text-slate-400">
                   <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>In-Memory Processing: Your resume text is not stored on disk or shared.</span>
+                  <span>In-Memory Processing: Your resume text is parsed in RAM and not stored on disk.</span>
                 </div>
               </div>
 
@@ -392,7 +426,7 @@ export default function Home() {
                     </button>
                   </div>
                   <p className="text-xs text-slate-400 mt-2">
-                    Paste the complete job requirements, required technologies, and responsibilities.
+                    Paste the target job requirements, qualifications, and role responsibilities.
                   </p>
                 </div>
 
@@ -412,37 +446,58 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Analyze Button */}
-            <button
-              type="submit"
-              disabled={loading || !selectedFile || jobDescription.trim().length < 30}
-              className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-600 hover:from-indigo-600 hover:to-violet-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-xl shadow-indigo-500/25 transition-all text-white cursor-pointer"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                  <span>Extracting resume text & analyzing match with Gemini AI...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5" />
-                  <span>Analyze My Match</span>
-                  <ArrowRight className="w-5 h-5" />
-                </>
-              )}
-            </button>
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="submit"
+                disabled={loading || !selectedFile || jobDescription.trim().length < 30}
+                className="flex-1 py-4 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-600 hover:from-indigo-600 hover:to-violet-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-xl shadow-indigo-500/25 transition-all text-white cursor-pointer"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    <span>Extracting resume text & analyzing match with Gemini AI...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-5 h-5" />
+                    <span>Analyze My Match</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleRunDemo}
+                disabled={demoLoading}
+                className="px-6 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 font-semibold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0"
+              >
+                {demoLoading ? <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" /> : <PlayCircle className="w-4 h-4 text-indigo-400" />}
+                <span>Try Demo Analysis</span>
+              </button>
+            </div>
           </form>
         ) : (
           /* Results Dashboard View */
           <div className="space-y-8 animate-fadeIn">
-            {/* Top Bar with Reset Action */}
+            {/* Top Bar with Demo Indicator & Reset Action */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
-              <div>
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-wider">
-                  Analysis Complete
-                </span>
-                <h2 className="text-2xl font-bold text-slate-100 mt-1">Resume Alignment Overview</h2>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  {analysis.is_demo ? (
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 uppercase tracking-wider">
+                      <Info className="w-3.5 h-3.5 text-amber-400" /> Demo Data — Not a live AI analysis
+                    </span>
+                  ) : (
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 uppercase tracking-wider">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" /> Live Gemini AI Analysis
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-2xl font-bold text-slate-100">Resume Alignment Overview</h2>
               </div>
+
               <button
                 onClick={handleReset}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition-colors cursor-pointer"
@@ -741,7 +796,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500 mt-auto">
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p>CareerMatch AI • AI-Powered Resume & Job Match Analyzer</p>
+          <p>CareerMatch AI • Devpost Build With AI: Basics Hackathon Submission</p>
           <div className="flex items-center gap-4 text-slate-400">
             <span className="text-slate-600">FastAPI • Next.js • Google Gemini</span>
           </div>
