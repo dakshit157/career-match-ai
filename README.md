@@ -2,7 +2,21 @@
 
 > **Project:** CareerMatch AI  
 > **Type:** Standalone Web Application  
-> **Stack:** Next.js (TypeScript, Tailwind CSS) • Python FastAPI • AI Analysis Engine
+> **Stack:** Next.js (TypeScript, Tailwind CSS) • Python FastAPI • AI Analysis Engine  
+> **Live App (Vercel):** [https://career-match-ai.vercel.app](https://career-match-ai.vercel.app) ([Vercel Project](https://vercel.com/dakshit1/career-match-ai))  
+> **Live Backend API (Render):** [https://career-match-ai-xez2.onrender.com](https://career-match-ai-xez2.onrender.com/)
+
+---
+
+## 🌐 Live Deployments
+
+| Component | Platform | URL |
+|---|---|---|
+| **Web Application** | Vercel | [https://career-match-ai.vercel.app](https://career-match-ai.vercel.app) |
+| **Vercel Project** | Vercel | [https://vercel.com/dakshit1/career-match-ai](https://vercel.com/dakshit1/career-match-ai) |
+| **Backend API** | Render | [https://career-match-ai-xez2.onrender.com/](https://career-match-ai-xez2.onrender.com/) |
+| **API Health Status** | Render | [https://career-match-ai-xez2.onrender.com/health](https://career-match-ai-xez2.onrender.com/health) |
+| **Interactive API Docs** | Render (Swagger) | [https://career-match-ai-xez2.onrender.com/docs](https://career-match-ai-xez2.onrender.com/docs) |
 
 ---
 
@@ -84,7 +98,7 @@ Open **`http://localhost:3000`** in your browser.
    ```env
    GEMINI_API_KEY=your_backend_api_key
    PORT=8000
-   CORS_ORIGIN=https://your-frontend-domain.vercel.app
+   CORS_ORIGIN=https://career-match-ai.vercel.app
    ```
 3. Start command:
    ```bash
@@ -95,7 +109,7 @@ Open **`http://localhost:3000`** in your browser.
 1. Deploy the `frontend/` folder to Vercel.
 2. In Vercel Project Settings $\rightarrow$ Environment Variables, set:
    ```env
-   NEXT_PUBLIC_API_URL=https://your-backend-domain.onrender.com
+   NEXT_PUBLIC_API_URL=https://career-match-ai-xez2.onrender.com
    ```
 3. Deploy! The frontend will communicate with your deployed backend.
 
