@@ -306,7 +306,7 @@ export default function Home() {
 
         {/* Global Error Banner */}
         {errorMessage && (
-          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start justify-between gap-3">
+          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-start gap-3">
               <XCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
               <div className="space-y-1">
@@ -314,12 +314,31 @@ export default function Home() {
                 <p className="text-rose-300/90 leading-relaxed">{errorMessage}</p>
               </div>
             </div>
-            <button
-              onClick={handleRunDemo}
-              className="shrink-0 px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 text-xs font-medium transition-colors"
-            >
-              Try Demo Instead
-            </button>
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              {selectedFile && jobDescription.trim().length >= 30 && (
+                <button
+                  type="button"
+                  onClick={handleAnalyze}
+                  disabled={loading}
+                  className="px-3.5 py-1.5 rounded-lg bg-indigo-600/80 hover:bg-indigo-600 text-white font-medium text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {loading ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  )}
+                  <span>{loading ? "Retrying..." : "Retry Analysis"}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleRunDemo}
+                disabled={demoLoading}
+                className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition-colors cursor-pointer"
+              >
+                Try Demo Instead
+              </button>
+            </div>
           </div>
         )}
 

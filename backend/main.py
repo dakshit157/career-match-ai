@@ -1,7 +1,9 @@
 import io
 import os
 import json
-from typing import List, Optional, Dict
+import time
+import random
+from typing import List, Optional, Dict, Tuple, Any
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -22,7 +24,6 @@ cors_origins_env = os.getenv("CORS_ORIGIN", "http://localhost:3000")
 origins = [
     origin.strip() for origin in cors_origins_env.split(",") if origin.strip()
 ]
-# Default local origins
 for local_origin in ["http://localhost:3000", "http://127.0.0.1:3000"]:
     if local_origin not in origins:
         origins.append(local_origin)
@@ -79,6 +80,73 @@ class AnalyzeMatchResponse(BaseModel):
     disclaimer: str = Field(
         default="This match score is an algorithmic estimate based on the provided text, not a probability or guarantee of employment."
     )
+
+
+# --- Helper: Retryable Error Detection ---
+
+def is_retryable_error(exc: Exception) -> bool:
+    """Detects whether an API error is transient (e.g. 503 high demand, 429 rate limit, 500 server error)."""
+    err_str = str(exc).lower()
+    retryable_markers = [
+        "503", "unavailable", "high demand", "spikes in demand",
+        "429", "resource_exhausted", "rate limit", "quota",
+        "500", "internal server error", "502", "bad gateway", "504", "gateway timeout",
+        "connecterror", "timeout", "timed out", "connection reset"
+    ]
+    code = getattr(exc, "code", None)
+    if code in [429, 500, 502, 503, 504]:
+        return True
+    return any(marker in err_str for marker in retryable_markers)
+
+
+def execute_gemini_with_backoff(
+    client: Any,
+    candidate_models: List[str],
+    user_prompt: str,
+    system_instruction: str,
+    max_retries_per_model: int = 2,
+    initial_delay: float = 1.0,
+    backoff_multiplier: float = 2.0
+) -> Tuple[Any, str]:
+    """
+    Executes a Gemini generation call with safe exponential backoff and jitter.
+    If a model encounters a 503 spike or 429 rate limit, it waits and retries,
+    then fails over to alternative candidate models in order.
+    """
+    from google.genai import types
+
+    last_error: Optional[Exception] = None
+
+    for model_name in candidate_models:
+        for attempt in range(max_retries_per_model + 1):
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=user_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        response_mime_type="application/json",
+                        temperature=0.2
+                    )
+                )
+                if response and response.text and response.text.strip():
+                    return response, model_name
+            except Exception as err:
+                last_error = err
+                if not is_retryable_error(err):
+                    # Fail fast on non-retryable errors (e.g. 400 Bad Request, 401 Unauthorized)
+                    break
+
+                # If retryable and attempts remain, perform exponential backoff with jitter
+                if attempt < max_retries_per_model:
+                    jitter = random.uniform(0.1, 0.4)
+                    sleep_sec = (initial_delay * (backoff_multiplier ** attempt)) + jitter
+                    time.sleep(sleep_sec)
+                else:
+                    # Move to next model candidate after retries exhausted for this model
+                    break
+
+    raise last_error or Exception("All Gemini API candidate models and retry attempts failed.")
 
 
 # --- Demo Data Generator (For Judges & Evaluation without Gemini API Key) ---
@@ -260,11 +328,9 @@ def analyze_match(
             )
         )
 
-    # 6. Analyze via Google Gemini 2.5 Flash
+    # 6. Analyze via Google Gemini with Exponential Backoff
     try:
         from google import genai
-        from google.genai import types
-
         client = genai.Client(api_key=api_key)
 
         system_instruction = (
@@ -328,36 +394,20 @@ Analyze the resume against this job description and output a valid JSON object m
 }}
 """
 
-        # Primary model requested: gemini-3.8-flash (with robust fallbacks for temporary 503 high-demand spikes)
+        # Primary requested model: gemini-3.8-flash, with automatic resilience fallback
         primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
         candidate_models = [primary_model, "gemini-3.5-flash", "gemini-3-flash-preview"]
-        # Remove duplicates while preserving order
         candidate_models = list(dict.fromkeys(candidate_models))
 
-        response = None
-        last_error = None
-        used_model = None
-
-        for model_candidate in candidate_models:
-            try:
-                response = client.models.generate_content(
-                    model=model_candidate,
-                    contents=user_prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_instruction,
-                        response_mime_type="application/json",
-                        temperature=0.2
-                    )
-                )
-                used_model = model_candidate
-                break
-            except Exception as model_err:
-                last_error = model_err
-                # Continue to next model if model is unavailable or in high-demand spike
-                continue
-
-        if response is None:
-            raise last_error or Exception("Failed to generate analysis with candidate models.")
+        response, used_model = execute_gemini_with_backoff(
+            client=client,
+            candidate_models=candidate_models,
+            user_prompt=user_prompt,
+            system_instruction=system_instruction,
+            max_retries_per_model=2,
+            initial_delay=1.0,
+            backoff_multiplier=2.0
+        )
 
         raw_text = response.text.strip()
         data = json.loads(raw_text)
@@ -401,14 +451,22 @@ Analyze the resume against this job description and output a valid JSON object m
     except json.JSONDecodeError as jde:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"AI model returned malformed output: {str(jde)}. Please retry the analysis."
+            detail=f"AI model returned malformed output: {str(jde)}. Please click 'Retry Analysis' to regenerate."
         )
     except HTTPException:
         raise
     except Exception as e:
+        if is_retryable_error(e):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Google Gemini AI is temporarily experiencing high demand (503 Unavailable) or rate limiting (429). "
+                    "Please click 'Retry Analysis' in a moment, or explore sample results with 'Try Demo Analysis'."
+                )
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Gemini API request failed: {str(e)}. You can click 'Try Demo Analysis' to explore the evaluation dashboard."
+            detail=f"Gemini API request failed: {str(e)}. You can click 'Retry Analysis' or explore with 'Try Demo Analysis'."
         )
 
 
