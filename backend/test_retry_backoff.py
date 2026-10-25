@@ -40,7 +40,7 @@ def test_simulated_retry_backoff():
                 return MockResponse()
 
     start_time = time.time()
-    resp, model = main.execute_gemini_with_backoff(
+    resp, model = main.execute_ai_with_backoff(
         client=MockClient(),
         candidate_models=["mock-model"],
         user_prompt="test",
@@ -57,13 +57,13 @@ def test_simulated_retry_backoff():
     assert elapsed >= 0.5, f"Backoff delay too short: {elapsed}s"
     print(f"[PASS] Simulated 503 retried 2 times with backoff ({elapsed:.2f}s total) and succeeded on attempt 3.")
 
-def test_live_gemini_request():
+def test_live_ai_request():
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key or api_key in ["your_actual_api_key", "your_gemini_api_key_here"]:
         print("[SKIP] GEMINI_API_KEY not set. Skipping live test.")
         return
 
-    print("Executing real live Gemini AI analysis with backoff resilience...")
+    print("Executing real live AI analysis with backoff resilience...")
     import io
     from fastapi import UploadFile
 
@@ -86,10 +86,10 @@ def test_live_gemini_request():
     assert res.match_score > 0, "Match score must be positive"
     assert len(res.matching_skills) > 0, "Matching skills must not be empty"
     assert res.is_demo is False, "Live request must have is_demo=False"
-    print(f"[PASS] Real live Gemini request succeeded! Score: {res.match_score}/100, is_demo: {res.is_demo}")
+    print(f"[PASS] Real live AI request succeeded! Score: {res.match_score}/100, is_demo: {res.is_demo}")
 
 if __name__ == "__main__":
     test_is_retryable_error()
     test_simulated_retry_backoff()
-    test_live_gemini_request()
+    test_live_ai_request()
     print("\n>>> ALL RETRY AND BACKOFF VALIDATION TESTS PASSED! <<<")

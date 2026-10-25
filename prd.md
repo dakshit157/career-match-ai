@@ -7,14 +7,14 @@
 ---
 
 ## 1. Executive Summary
-CareerMatch AI empowers job applicants to demystify job postings. By matching candidate credentials against employer requirements using Google Gemini AI, it delivers an objective evaluation and a concrete action plan to optimize application success.
+CareerMatch AI empowers job applicants to demystify job postings. By matching candidate credentials against employer requirements using advanced AI analysis, it delivers an objective evaluation and a concrete action plan to optimize application success.
 
 ---
 
 ## 2. User Persona
 - **Name:** Priya Sharma
 - **Background:** Recent B.Tech IT graduate aspiring to enter the data analytics & data science field.
-- **Pain Point:** Applies to numerous Junior Data Scientist roles on LinkedIn/Devpost without hearing back. Unsure whether her resume lacks key keywords, needs stronger projects, or is genuinely misaligned.
+- **Pain Point:** Applies to numerous Junior Data Scientist roles on career portals and job boards without hearing back. Unsure whether her resume lacks key keywords, needs stronger projects, or is genuinely misaligned.
 - **Goal:** Upload her existing resume, paste a target job description, and get instant, honest feedback on missing qualifications and recommended bridge projects.
 
 ---
@@ -24,7 +24,7 @@ CareerMatch AI empowers job applicants to demystify job postings. By matching ca
 2. **Input:**
    - She clicks to upload her PDF resume (e.g. `priya_sharma_resume.pdf`). The UI validates the file format and displays its file size.
    - She pastes the target job description (or uses the sample button to test).
-3. **Trigger:** She clicks **"Analyze My Match"**. The button animates with a loading indicator while Gemini analyzes the text.
+3. **Trigger:** She clicks **"Analyze My Match"**. The button animates with a loading indicator while the AI analyzes the text.
 4. **Results Review:** Within seconds, the comprehensive dashboard renders:
    - Overall match score (e.g. 78/100) with category alignment bars.
    - Objective summary of candidate strengths.
@@ -50,7 +50,7 @@ CareerMatch AI empowers job applicants to demystify job postings. By matching ca
 - **FR-2.2**: Enforce minimum character threshold (30 characters) to prevent empty analysis.
 - **FR-2.3**: One-click "Load Sample" button for testing.
 
-### FR-3: AI Analysis (Google Gemini 3.8 Flash)
+### FR-3: AI Analysis Engine
 - **FR-3.1**: Secure backend endpoint: `POST /api/analyze-match`.
 - **FR-3.2**: Prompt instructions enforce strict truthfulness (no fabricated experience).
 - **FR-3.3**: Distinguish between absent skills and true deficiencies.
@@ -77,7 +77,7 @@ CareerMatch AI empowers job applicants to demystify job postings. By matching ca
 ---
 
 ## 5. Non-Functional & Security Requirements
-- **Privacy:** Resume text and job description are sent in-memory over HTTPS to Google's Gemini API; no documents are stored in local databases or logs.
+- **Privacy:** Resume text and job description are sent in-memory over HTTPS to the AI service; no documents are stored in local databases or logs.
 - **Performance:** End-to-end extraction and AI analysis returned in 3–6 seconds.
-- **Reliability:** Handles malformed AI output, network failures, and missing API keys gracefully with clear user guidance.
+- **Reliability:** Handles malformed AI output, network failures, and temporary API unavailability with retry backoff and clear user guidance.
 - **Usability:** Fully responsive layout across mobile and desktop devices.

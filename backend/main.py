@@ -15,7 +15,7 @@ load_dotenv()
 
 app = FastAPI(
     title="CareerMatch AI API",
-    description="AI-Powered Resume and Job Match Analyzer Backend powered by Google Gemini",
+    description="AI-Powered Resume and Job Match Analyzer Backend",
     version="1.0.0"
 )
 
@@ -45,6 +45,7 @@ class HealthResponse(BaseModel):
     status: str
     service: str
     gemini_configured: bool
+    ai_configured: bool = True
 
 
 class ProjectRecommendation(BaseModel):
@@ -99,7 +100,7 @@ def is_retryable_error(exc: Exception) -> bool:
     return any(marker in err_str for marker in retryable_markers)
 
 
-def execute_gemini_with_backoff(
+def execute_ai_with_backoff(
     client: Any,
     candidate_models: List[str],
     user_prompt: str,
@@ -109,7 +110,7 @@ def execute_gemini_with_backoff(
     backoff_multiplier: float = 2.0
 ) -> Tuple[Any, str]:
     """
-    Executes a Gemini generation call with safe exponential backoff and jitter.
+    Executes an AI generation call with safe exponential backoff and jitter.
     If a model encounters a 503 spike or 429 rate limit, it waits and retries,
     then fails over to alternative candidate models in order.
     """
@@ -146,10 +147,14 @@ def execute_gemini_with_backoff(
                     # Move to next model candidate after retries exhausted for this model
                     break
 
-    raise last_error or Exception("All Gemini API candidate models and retry attempts failed.")
+    raise last_error or Exception("All AI service candidate models and retry attempts failed.")
 
 
-# --- Demo Data Generator (For Judges & Evaluation without Gemini API Key) ---
+# Backward-compatible alias
+execute_gemini_with_backoff = execute_ai_with_backoff
+
+
+# --- Demo Data Generator (For Evaluation & Testing without AI API Key) ---
 
 def get_sample_demo_analysis() -> AnalyzeMatchResponse:
     """Returns a realistic pre-computed analysis for the sample Junior Data Scientist profile."""
@@ -269,11 +274,12 @@ def extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str:
 @app.get("/health", response_model=HealthResponse)
 def health_check():
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
-    is_gemini_configured = bool(api_key and api_key != "your_actual_api_key" and api_key != "your_gemini_api_key_here" and len(api_key) > 5)
+    is_configured = bool(api_key and api_key != "your_actual_api_key" and api_key != "your_gemini_api_key_here" and len(api_key) > 5)
     return HealthResponse(
         status="ok",
         service="CareerMatch AI Backend (FastAPI)",
-        gemini_configured=is_gemini_configured
+        gemini_configured=is_configured,
+        ai_configured=is_configured
     )
 
 
@@ -315,20 +321,20 @@ def analyze_match(
     # 4. Extract Resume Text in-memory
     resume_text = extract_text_from_pdf_bytes(pdf_bytes)
 
-    # 5. Check Gemini API Key (configured by the application owner on the backend host)
+    # 5. Check API Key (configured by the application owner on the backend host)
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
-    is_gemini_configured = bool(api_key and api_key != "your_actual_api_key" and api_key != "your_gemini_api_key_here" and len(api_key) > 5)
-    if not is_gemini_configured:
+    is_api_configured = bool(api_key and api_key != "your_actual_api_key" and api_key != "your_gemini_api_key_here" and len(api_key) > 5)
+    if not is_api_configured:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
-                "Google Gemini API is not configured on this server instance. "
-                "The application owner can set GEMINI_API_KEY in the backend host environment. "
+                "AI service is not configured on this server instance. "
+                "The application owner can configure the API key in the backend environment. "
                 "You can click 'Try Demo Analysis' to explore the complete results dashboard."
             )
         )
 
-    # 6. Analyze via Google Gemini with Exponential Backoff
+    # 6. Analyze via AI Service with Exponential Backoff
     try:
         from google import genai
         client = genai.Client(api_key=api_key)
@@ -399,7 +405,7 @@ Analyze the resume against this job description and output a valid JSON object m
         candidate_models = [primary_model, "gemini-3.5-flash", "gemini-3-flash-preview"]
         candidate_models = list(dict.fromkeys(candidate_models))
 
-        response, used_model = execute_gemini_with_backoff(
+        response, used_model = execute_ai_with_backoff(
             client=client,
             candidate_models=candidate_models,
             user_prompt=user_prompt,
@@ -460,13 +466,13 @@ Analyze the resume against this job description and output a valid JSON object m
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=(
-                    "Google Gemini AI is temporarily experiencing high demand (503 Unavailable) or rate limiting (429). "
+                    "AI service is temporarily experiencing high demand or rate limiting. "
                     "Please click 'Retry Analysis' in a moment, or explore sample results with 'Try Demo Analysis'."
                 )
             )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Gemini API request failed: {str(e)}. You can click 'Retry Analysis' or explore with 'Try Demo Analysis'."
+            detail=f"AI service request failed: {str(e)}. You can click 'Retry Analysis' or explore with 'Try Demo Analysis'."
         )
 
 

@@ -93,10 +93,10 @@ def test_missing_api_key_handling():
             assert False, "Should raise HTTPException"
         except HTTPException as e:
             assert e.status_code == 503
-            assert "gemini api is not configured" in e.detail.lower()
-            print("[PASS] 8. Unset backend GEMINI_API_KEY returns clear HTTP 503 configuration error.")
+            assert "ai service is not configured" in e.detail.lower() or "gemini api is not configured" in e.detail.lower()
+            print("[PASS] 8. Unset backend API key returns clear HTTP 503 configuration error.")
     else:
-        print("[INFO] 8. Backend GEMINI_API_KEY is configured in environment.")
+        print("[INFO] 8. Backend API key is configured in environment.")
 
 def test_response_schema_validation():
     sample_response = main.AnalyzeMatchResponse(

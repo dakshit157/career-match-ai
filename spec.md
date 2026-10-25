@@ -1,7 +1,7 @@
 # Technical Specification (Spec)
 
 ## Project Title: CareerMatch AI — AI-Powered Resume & Job Match Analyzer
-**Stack:** Next.js (Frontend) + FastAPI (Backend) + Google Gemini API (AI)
+**Stack:** Next.js (Frontend) + FastAPI (Backend) + AI Analysis Engine
 
 ---
 
@@ -20,7 +20,7 @@
              │ 2. Extract text in-memory via pypdf
              │ 3. Formulate structured prompt & JSON schema
              ▼
-[ Google Gemini 3.8 Flash API ]
+[ AI Analysis Engine ]
              │
              │ Validated JSON Output
              ▼
@@ -93,22 +93,22 @@
 
 ---
 
-## 3. Gemini Prompt Engineering
+## 3. AI Prompt Engineering
 
 ### Prompt Strategy
-1. **Model:** `gemini-3.8-flash`
+1. **Model Architecture:** AI Structured Analysis with Resilience Backoff
 2. **System Instruction:**
    - Enforce rigorous adherence to the text provided in the resume.
    - Forbid inventing credentials, certificates, or prior employment.
    - Separate missing skills (not mentioned at all) from skills that need improvement (mentioned but lacking depth).
    - Require actionable, honest resume refinement suggestions and project ideas.
 3. **Response Schema Enforcement:**
-   - Configured with `response_mime_type="application/json"` and `temperature=0.2` for deterministic, structured output.
+   - Configured with structured JSON output and low temperature for deterministic, consistent output.
 
 ---
 
 ## 4. Privacy & In-Memory Processing Guarantees
 - Uploaded PDFs are read into `io.BytesIO` streams in RAM.
 - No files are written to the local filesystem or a database.
-- Text is sent securely to Google's Gemini API over TLS/HTTPS.
+- Text is transmitted securely to the AI service over TLS/HTTPS.
 - Memory buffers are released immediately after request completion.

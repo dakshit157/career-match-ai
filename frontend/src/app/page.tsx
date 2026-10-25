@@ -88,7 +88,7 @@ export default function Home() {
 
   // Backend Health Status
   const [backendStatus, setBackendStatus] = useState<"checking" | "connected" | "disconnected">("checking");
-  const [geminiConfigured, setGeminiConfigured] = useState<boolean>(false);
+  const [aiConfigured, setAiConfigured] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -98,7 +98,7 @@ export default function Home() {
       if (res.ok) {
         const data = await res.json();
         setBackendStatus("connected");
-        setGeminiConfigured(Boolean(data.gemini_configured));
+        setAiConfigured(Boolean(data.ai_configured ?? data.gemini_configured));
       } else {
         setBackendStatus("disconnected");
       }
@@ -258,8 +258,8 @@ export default function Home() {
             {backendStatus === "connected" && (
               <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700">
                 <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                <span className={geminiConfigured ? "text-emerald-400" : "text-amber-400"}>
-                  {geminiConfigured ? "Gemini AI Active" : "Demo Mode"}
+                <span className={aiConfigured ? "text-emerald-400" : "text-amber-400"}>
+                  {aiConfigured ? "AI Analysis Active" : "Demo Mode"}
                 </span>
               </div>
             )}
@@ -272,7 +272,7 @@ export default function Home() {
         {/* Hero Section */}
         <div className="text-center space-y-3 max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Devpost Build With AI: Basics Hackathon
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Intelligent Match & Skills Analyzer
           </div>
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
             Bridge the Gap Between Your Resume and{" "}
@@ -475,7 +475,7 @@ export default function Home() {
                 {loading ? (
                   <>
                     <RefreshCw className="w-5 h-5 animate-spin" />
-                    <span>Extracting resume text & analyzing match with Gemini AI...</span>
+                    <span>Extracting resume text & analyzing match with AI...</span>
                   </>
                 ) : (
                   <>
@@ -510,7 +510,7 @@ export default function Home() {
                     </span>
                   ) : (
                     <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 uppercase tracking-wider">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" /> Live Gemini AI Analysis
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" /> Live AI Analysis
                     </span>
                   )}
                 </div>
@@ -815,9 +815,9 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500 mt-auto">
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p>CareerMatch AI • Devpost Build With AI: Basics Hackathon Submission</p>
+          <p>CareerMatch AI • AI-Powered Resume & Job Match Analyzer</p>
           <div className="flex items-center gap-4 text-slate-400">
-            <span className="text-slate-600">FastAPI • Next.js • Google Gemini</span>
+            <span className="text-slate-600">FastAPI • Next.js • AI Analysis</span>
           </div>
         </div>
       </footer>
