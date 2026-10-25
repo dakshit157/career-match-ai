@@ -10,17 +10,20 @@ def test_is_retryable_error():
     print("Testing is_retryable_error classification...")
     # Simulated errors
     err_503 = Exception("503 UNAVAILABLE. {'error': {'message': 'This model is currently experiencing high demand.'}}")
-    err_429 = Exception("429 RESOURCE_EXHAUSTED. {'error': {'message': 'Quota exceeded'}}")
+    err_429_burst = Exception("429 RESOURCE_EXHAUSTED. {'error': {'message': 'Rate limit exceeded'}}")
+    err_429_daily = Exception("429 RESOURCE_EXHAUSTED. Generate content requests per day limit exceeded on Free Tier.")
     err_500 = Exception("500 Internal Server Error")
     err_400 = Exception("400 Bad Request: Invalid argument")
     err_401 = Exception("401 Unauthorized: Invalid API key")
 
     assert main.is_retryable_error(err_503) is True, "503 must be retryable"
-    assert main.is_retryable_error(err_429) is True, "429 must be retryable"
+    assert main.is_retryable_error(err_429_burst) is True, "Short rate limit must be retryable"
+    assert main.is_unrecoverable_quota_error(err_429_daily) is True, "Daily quota must be detected as unrecoverable"
+    assert main.is_retryable_error(err_429_daily) is False, "Daily quota must NOT be retried"
     assert main.is_retryable_error(err_500) is True, "500 must be retryable"
     assert main.is_retryable_error(err_400) is False, "400 must NOT be retryable"
     assert main.is_retryable_error(err_401) is False, "401 must NOT be retryable"
-    print("[PASS] Error classification correctly identifies 503/429/500 as retryable and 400/401 as non-retryable.")
+    print("[PASS] Error classification correctly identifies transient vs daily quota errors.")
 
 def test_simulated_retry_backoff():
     print("Testing exponential backoff execution...")

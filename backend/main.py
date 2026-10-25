@@ -83,21 +83,43 @@ class AnalyzeMatchResponse(BaseModel):
     )
 
 
-# --- Helper: Retryable Error Detection ---
+# --- Helper: Error Classification & Resilience ---
+
+def is_unrecoverable_quota_error(exc: Exception) -> bool:
+    """Detects whether an error is a hard daily quota exhaustion, billing, or plan limit."""
+    err_str = str(exc).lower()
+    quota_exhausted_markers = [
+        "limit exceeded on free tier",
+        "requests per day limit exceeded",
+        "perprojectpermodel-freetier",
+        "check your plan and billing",
+        "quota exceeded for metric",
+        "quota failure"
+    ]
+    return any(marker in err_str for marker in quota_exhausted_markers)
+
 
 def is_retryable_error(exc: Exception) -> bool:
-    """Detects whether an API error is transient (e.g. 503 high demand, 429 rate limit, 500 server error)."""
+    """Detects transient network or server errors suitable for short backoff retries.
+    Never retries unrecoverable daily quota or billing errors.
+    """
+    if is_unrecoverable_quota_error(exc):
+        return False
+
     err_str = str(exc).lower()
-    retryable_markers = [
+    transient_markers = [
         "503", "unavailable", "high demand", "spikes in demand",
-        "429", "resource_exhausted", "rate limit", "quota",
-        "500", "internal server error", "502", "bad gateway", "504", "gateway timeout",
-        "connecterror", "timeout", "timed out", "connection reset"
+        "429", "rate limit",
+        "500", "internal server error",
+        "502", "bad gateway", "504", "gateway timeout",
+        "timeout", "timed out", "connecterror", "connection reset"
     ]
     code = getattr(exc, "code", None)
-    if code in [429, 500, 502, 503, 504]:
+    if code == 429 and not is_unrecoverable_quota_error(exc):
         return True
-    return any(marker in err_str for marker in retryable_markers)
+    if code in [502, 503, 504]:
+        return True
+    return any(marker in err_str for marker in transient_markers)
 
 
 def execute_ai_with_backoff(
@@ -105,14 +127,14 @@ def execute_ai_with_backoff(
     candidate_models: List[str],
     user_prompt: str,
     system_instruction: str,
-    max_retries_per_model: int = 2,
-    initial_delay: float = 1.0,
-    backoff_multiplier: float = 2.0
+    max_retries_per_model: int = 1,
+    initial_delay: float = 0.5,
+    backoff_multiplier: float = 1.5
 ) -> Tuple[Any, str]:
     """
-    Executes an AI generation call with safe exponential backoff and jitter.
-    If a model encounters a 503 spike or 429 rate limit, it waits and retries,
-    then fails over to alternative candidate models in order.
+    Executes an AI generation call with safe bounded backoff and fast model failover.
+    Transient 503/timeout spikes retry briefly; daily quota errors failover immediately
+    to alternative active models without unnecessary sleep delays.
     """
     from google.genai import types
 
@@ -127,24 +149,24 @@ def execute_ai_with_backoff(
                     config=types.GenerateContentConfig(
                         system_instruction=system_instruction,
                         response_mime_type="application/json",
-                        temperature=0.2
+                        temperature=0.2,
+                        max_output_tokens=2048
                     )
                 )
                 if response and response.text and response.text.strip():
                     return response, model_name
             except Exception as err:
                 last_error = err
-                if not is_retryable_error(err):
-                    # Fail fast on non-retryable errors (e.g. 400 Bad Request, 401 Unauthorized)
+                # If hard quota error or non-retryable, skip retrying this model and failover immediately
+                if is_unrecoverable_quota_error(err) or not is_retryable_error(err):
                     break
 
-                # If retryable and attempts remain, perform exponential backoff with jitter
+                # Only retry transient errors (503 spike, short rate limit)
                 if attempt < max_retries_per_model:
-                    jitter = random.uniform(0.1, 0.4)
+                    jitter = random.uniform(0.1, 0.3)
                     sleep_sec = (initial_delay * (backoff_multiplier ** attempt)) + jitter
                     time.sleep(sleep_sec)
                 else:
-                    # Move to next model candidate after retries exhausted for this model
                     break
 
     raise last_error or Exception("All AI service candidate models and retry attempts failed.")
@@ -320,6 +342,11 @@ def analyze_match(
 
     # 4. Extract Resume Text in-memory
     resume_text = extract_text_from_pdf_bytes(pdf_bytes)
+    # Bound input length to prevent latency spikes while preserving full resume credentials
+    if len(resume_text) > 12000:
+        resume_text = resume_text[:12000]
+    if len(clean_job_desc) > 8000:
+        clean_job_desc = clean_job_desc[:8000]
 
     # 5. Check API Key (configured by the application owner on the backend host)
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
@@ -400,9 +427,19 @@ Analyze the resume against this job description and output a valid JSON object m
 }}
 """
 
-        # Primary requested model: gemini-3.8-flash, with automatic resilience fallback
-        primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-        candidate_models = [primary_model, "gemini-3.5-flash", "gemini-3-flash-preview"]
+        # Prioritize responsive, active models with available quota
+        configured_model = os.getenv("GEMINI_MODEL", "").strip()
+        candidate_models = []
+        if configured_model:
+            candidate_models.append(configured_model)
+        # Fast, active models with independent quota pools:
+        candidate_models.extend([
+            "gemini-3.5-flash-lite",
+            "gemini-flash-lite-latest",
+            "gemini-3-flash-preview",
+            "gemini-3.8-flash",
+            "gemini-3.5-flash"
+        ])
         candidate_models = list(dict.fromkeys(candidate_models))
 
         response, used_model = execute_ai_with_backoff(
@@ -410,9 +447,9 @@ Analyze the resume against this job description and output a valid JSON object m
             candidate_models=candidate_models,
             user_prompt=user_prompt,
             system_instruction=system_instruction,
-            max_retries_per_model=2,
-            initial_delay=1.0,
-            backoff_multiplier=2.0
+            max_retries_per_model=1,
+            initial_delay=0.5,
+            backoff_multiplier=1.5
         )
 
         raw_text = response.text.strip()
@@ -462,6 +499,15 @@ Analyze the resume against this job description and output a valid JSON object m
     except HTTPException:
         raise
     except Exception as e:
+        if is_unrecoverable_quota_error(e):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "AI service daily free-tier quota has been reached on this server instance. "
+                    "You can immediately explore the full analysis dashboard with 'Try Demo Analysis', "
+                    "or try again when provider quota resets."
+                )
+            )
         if is_retryable_error(e):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
