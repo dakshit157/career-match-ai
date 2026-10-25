@@ -51,6 +51,7 @@ interface SubjectDistribution {
 
 interface StudyPlanResponse {
   plan_summary: string;
+  warning?: string;
   total_days: number;
   total_hours: number;
   subject_distribution: SubjectDistribution[];
@@ -457,6 +458,13 @@ export default function Home() {
                 </button>
               </div>
 
+              {plan.warning && (
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+                  <span>{plan.warning}</span>
+                </div>
+              )}
+
               <p className="text-sm text-slate-300 leading-relaxed">{plan.plan_summary}</p>
 
               {/* Subject Distribution Pills */}
@@ -523,8 +531,12 @@ export default function Home() {
                               <span className="text-xs font-bold text-slate-100">{sess.subject}</span>
                               <span
                                 className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                                  sess.session_type === "Revision"
+                                  sess.session_type === "Optional Final Revision"
+                                    ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                    : sess.session_type === "Revision"
                                     ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                    : sess.session_type === "Practice Questions"
+                                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
                                     : sess.session_type === "Deep Study"
                                     ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
                                     : "bg-teal-500/20 text-teal-300 border border-teal-500/30"
