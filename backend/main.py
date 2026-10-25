@@ -19,18 +19,24 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configure CORS (allow frontend in dev and deployed environments)
-cors_origins_env = os.getenv("CORS_ORIGIN", "http://localhost:3000")
+# Configure CORS (allow frontend in dev, Vercel deployments, and custom domains)
+cors_origins_env = os.getenv("CORS_ORIGIN", "")
 origins = [
     origin.strip() for origin in cors_origins_env.split(",") if origin.strip()
 ]
-for local_origin in ["http://localhost:3000", "http://127.0.0.1:3000"]:
-    if local_origin not in origins:
-        origins.append(local_origin)
+for default_origin in [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://career-match-ai.vercel.app",
+    "https://career-match-ai-lovat.vercel.app"
+]:
+    if default_origin not in origins:
+        origins.append(default_origin)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins if "*" not in origins else ["*"],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

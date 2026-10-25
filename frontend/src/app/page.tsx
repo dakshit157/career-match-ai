@@ -55,7 +55,23 @@ interface AnalyzeMatchResponse {
   disclaimer: string;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const getApiBaseUrl = (): string => {
+  let url = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (url) {
+    // Automatically correct common typo (e.g. .onrender.c instead of .onrender.com)
+    if (url.endsWith(".onrender.c")) {
+      url = url + "om";
+    }
+    return url.replace(/\/+$/, "");
+  }
+  // Automatic fallback when loaded on Vercel
+  if (typeof window !== "undefined" && window.location.hostname.includes("vercel.app")) {
+    return "https://career-match-ai-xez2.onrender.com";
+  }
+  return "http://localhost:8000";
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const SAMPLE_JOB_DESCRIPTION = `Job Title: Junior Data Scientist
 Location: Remote / Hybrid
