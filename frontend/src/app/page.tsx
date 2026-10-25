@@ -259,7 +259,7 @@ export default function Home() {
               <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700">
                 <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                 <span className={geminiConfigured ? "text-emerald-400" : "text-amber-400"}>
-                  {geminiConfigured ? "Gemini 2.5 Active" : "Demo Mode"}
+                  {geminiConfigured ? "Gemini AI Active" : "Demo Mode"}
                 </span>
               </div>
             )}

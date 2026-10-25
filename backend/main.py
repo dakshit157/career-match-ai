@@ -328,15 +328,36 @@ Analyze the resume against this job description and output a valid JSON object m
 }}
 """
 
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=user_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                response_mime_type="application/json",
-                temperature=0.2
-            )
-        )
+        # Primary model requested: gemini-3.8-flash (with robust fallbacks for temporary 503 high-demand spikes)
+        primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+        candidate_models = [primary_model, "gemini-3.5-flash", "gemini-3-flash-preview"]
+        # Remove duplicates while preserving order
+        candidate_models = list(dict.fromkeys(candidate_models))
+
+        response = None
+        last_error = None
+        used_model = None
+
+        for model_candidate in candidate_models:
+            try:
+                response = client.models.generate_content(
+                    model=model_candidate,
+                    contents=user_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        response_mime_type="application/json",
+                        temperature=0.2
+                    )
+                )
+                used_model = model_candidate
+                break
+            except Exception as model_err:
+                last_error = model_err
+                # Continue to next model if model is unavailable or in high-demand spike
+                continue
+
+        if response is None:
+            raise last_error or Exception("Failed to generate analysis with candidate models.")
 
         raw_text = response.text.strip()
         data = json.loads(raw_text)

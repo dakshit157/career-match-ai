@@ -50,7 +50,7 @@ CareerMatch AI empowers job applicants to demystify job postings. By matching ca
 - **FR-2.2**: Enforce minimum character threshold (30 characters) to prevent empty analysis.
 - **FR-2.3**: One-click "Load Sample" button for testing.
 
-### FR-3: AI Analysis (Google Gemini 2.5 Flash)
+### FR-3: AI Analysis (Google Gemini 3.8 Flash)
 - **FR-3.1**: Secure backend endpoint: `POST /api/analyze-match`.
 - **FR-3.2**: Prompt instructions enforce strict truthfulness (no fabricated experience).
 - **FR-3.3**: Distinguish between absent skills and true deficiencies.

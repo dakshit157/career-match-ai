@@ -20,7 +20,7 @@
              │ 2. Extract text in-memory via pypdf
              │ 3. Formulate structured prompt & JSON schema
              ▼
-[ Google Gemini 2.5 Flash API ]
+[ Google Gemini 3.8 Flash API ]
              │
              │ Validated JSON Output
              ▼
@@ -96,7 +96,7 @@
 ## 3. Gemini Prompt Engineering
 
 ### Prompt Strategy
-1. **Model:** `gemini-2.5-flash`
+1. **Model:** `gemini-3.8-flash`
 2. **System Instruction:**
    - Enforce rigorous adherence to the text provided in the resume.
    - Forbid inventing credentials, certificates, or prior employment.
