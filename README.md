@@ -3,7 +3,7 @@
 > **Project:** CareerMatch AI  
 > **Type:** Standalone Web Application  
 > **Stack:** Next.js (TypeScript, Tailwind CSS) • Python FastAPI • AI Analysis Engine  
-> **Live App (Vercel):** [https://career-match-ai.vercel.app](https://career-match-ai.vercel.app) ([Vercel Project](https://vercel.com/dakshit1/career-match-ai))  
+> **Live App (Vercel):** [https://career-match-ai-lovat.vercel.app](https://career-match-ai-lovat.vercel.app) ([Vercel Project](https://vercel.com/dakshit1/career-match-ai))  
 > **Live Backend API (Render):** [https://career-match-ai-xez2.onrender.com](https://career-match-ai-xez2.onrender.com/)
 
 ---
@@ -12,7 +12,7 @@
 
 | Component | Platform | URL |
 |---|---|---|
-| **Web Application** | Vercel | [https://career-match-ai.vercel.app](https://career-match-ai.vercel.app) |
+| **Web Application** | Vercel | [https://career-match-ai-lovat.vercel.app](https://career-match-ai-lovat.vercel.app) |
 | **Vercel Project** | Vercel | [https://vercel.com/dakshit1/career-match-ai](https://vercel.com/dakshit1/career-match-ai) |
 | **Backend API** | Render | [https://career-match-ai-xez2.onrender.com/](https://career-match-ai-xez2.onrender.com/) |
 | **API Health Status** | Render | [https://career-match-ai-xez2.onrender.com/health](https://career-match-ai-xez2.onrender.com/health) |
@@ -98,7 +98,7 @@ Open **`http://localhost:3000`** in your browser.
    ```env
    GEMINI_API_KEY=your_backend_api_key
    PORT=8000
-   CORS_ORIGIN=https://career-match-ai.vercel.app
+   CORS_ORIGIN=https://career-match-ai-lovat.vercel.app
    ```
 3. Start command:
    ```bash
