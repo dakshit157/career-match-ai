@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "CareerMatch AI — AI-Powered Resume & Job Match Analyzer",
   description: "Analyze how well your resume matches any job description with advanced AI. Discover missing skills, resume improvement tips, and a personalized learning roadmap.",
+  verification: {
+    google: "OM26TomIKJd_-YET27Qlzh9aN2ok9yDpys_cSuX4kbs",
+  },
 };
 
 export default function RootLayout({
